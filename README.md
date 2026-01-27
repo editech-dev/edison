@@ -16,7 +16,7 @@ This project features **CyberStack**, an advanced AI Assistant designed to repre
 
 ### ⚡ Tech Stack
 *   **Frontend**: Next.js 15 (App Router), Tailwind CSS, Framer Motion.
-*   **AI Core**: Google Gemini 1.5 Flash (via Vercel SDK).
+*   **AI Core**: Google Gemini Flash Lite (via Google Generative AI SDK).
 *   **Database**: Redis (for chat logs).
 *   **Language**: TypeScript.
 
@@ -63,7 +63,7 @@ src/
 │   │   ├── chats/           # Chat history retrieval APIs
 │   │   └── log-chat/        # Chat logging endpoint (to Redis)
 │   ├── components/
-│   │   └── ChatBot/         # React Chat Widget
+│   │   └── ChatBot/         # React Chat Widget (Powered by Gemini)
 │   └── utils/
 │       ├── expert_persona.xml # Neural Activation Prompt
 │       ├── github.ts          # GitHub API Fetcher + Cache

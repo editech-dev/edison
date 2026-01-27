@@ -10,7 +10,7 @@ import { Card } from "@/app/components/Card/card";
 
 const socials = [
     {
-        icon: <SiLinkedin size={20} />, 
+        icon: <SiLinkedin size={20} />,
         href: "https://www.linkedin.com/in/edison-isaza",
         label: "Linkedin",
         handle: "@edison",
@@ -23,15 +23,15 @@ const socials = [
     },
     {
         icon: <SiGithub size={20} />,
-        href: "https://github.com/peluza",
+        href: "https://github.com/editech-dev",
         label: "Github",
-        handle: "peluza",
+        handle: "editech-dev",
     },
 ];
 
 export default function Contact() {
-  return (
-    <div className="bg-gradient-to-tl from-black via-zinc-600/20 to-black">
+    return (
+        <div className="bg-gradient-to-tl from-black via-zinc-600/20 to-black">
             <Navigation />
             <div className="container flex items-center justify-center min-h-screen px-4 mx-auto">
                 <div className="grid w-full grid-cols-1 gap-8 mx-auto mt-32 sm:mt-0 sm:grid-cols-3 lg:gap-16">
@@ -63,5 +63,5 @@ export default function Contact() {
                 </div>
             </div>
         </div>
-  )
+    )
 }

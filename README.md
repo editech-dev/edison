@@ -10,7 +10,7 @@ This project features **CyberStack**, an advanced AI Assistant designed to repre
 *   **Expert Persona**: A specialized AI assistant that acts as a third-party expert representing Edison. It answers questions about his skills, experience, and services with high precision.
 *   **Neural Activation**: Powered by `src/app/utils/expert_persona.xml`, ensuring strict adherence to the expert persona and minimizing hallucinations.
 *   **Dynamic Context**:
-    *   **GitHub**: Fetches real-time project data from `peluza/peluza`.
+    *   **GitHub**: Fetches real-time project data from `editech-dev/editech-dev`.
     *   **LinkedIn**: Injects detailed verified experience from `src/data/profile.json`.
 *   **Chat Memory**: Full conversation history persistence using Redis.
 
@@ -77,7 +77,7 @@ src/
 
 1.  **Clone the repository**:
     ```bash
-    git clone https://github.com/peluza/edison-dev.git
+    git clone https://github.com/editech-dev/edison-dev.git
     cd edison-dev
     ```
 
@@ -92,7 +92,7 @@ src/
     ```env
     NEXT_PUBLIC_GEMINI_API_KEY=your_gemini_key
     GITHUB_TOKEN=your_github_token
-    GITHUB_REPO_OWNER=peluza
+    GITHUB_REPO_OWNER=editech-dev
     REDIS_URL=redis://localhost:6379 (optional, defaults to local)
     ```
 

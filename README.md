@@ -18,6 +18,7 @@ This project features **CyberStack**, an advanced AI Assistant designed to repre
 *   **Frontend**: Next.js 15 (App Router), Tailwind CSS, Framer Motion.
 *   **AI Core**: Google Gemini Flash Lite (via Google Generative AI SDK).
 *   **Database**: Redis (for chat logs).
+*   **SEO**: Dynamic Sitemap, Robots.txt, JSON-LD Schema, and Open Graph Metadata.
 *   **Language**: TypeScript.
 
 ## 🛠️ Architecture

@@ -137,14 +137,67 @@ export default function ChatBotComponent() {
       });
 
     } catch (error: any) {
-      console.error('Error:', error);
-      setMessages(prev => {
-        const updated = [...prev];
-        if (updated[updated.length - 1].content === '...') {
-          updated[updated.length - 1].content = `Error: ${error.message}`;
+      console.error('Gemini Error, attempting OpenRouter fallback:', error);
+      
+      try {
+        // --- OPENROUTER FALLBACK API ---
+        const openRouterApiKey = process.env.NEXT_PUBLIC_OPENROUTER_API_KEY as string;
+        if (!openRouterApiKey) throw new Error("No OpenRouter API Key available for fallback.");
+
+        const openRouterMessages = [
+          { role: 'system', content: initialPrompt[0].text },
+          ...currentMessages.map(msg => ({
+            role: msg.role === 'user' ? 'user' : 'assistant',
+            content: msg.content
+          }))
+        ];
+
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${openRouterApiKey}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash", // Good general fallback model via OpenRouter
+            messages: openRouterMessages,
+            temperature: 0.1,
+            top_p: 0.95
+          })
+        });
+
+        if (!response.ok) {
+           throw new Error(`OpenRouter error: ${response.statusText}`);
         }
-        return updated;
-      });
+        
+        const data = await response.json();
+        const assistantResponse = data.choices && data.choices[0]?.message?.content;
+
+        setMessages(prev => {
+          const updatedMessages = [...prev];
+          const lastMsgIndex = updatedMessages.length - 1;
+          if (updatedMessages[lastMsgIndex].content === '...') {
+            updatedMessages[lastMsgIndex] = { role: 'assistant', content: assistantResponse || 'No response.' };
+          }
+
+          fetch('/api/log-chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ messages: updatedMessages, timestamp: new Date().toISOString() })
+          }).catch(err => console.error("Error logging:", err));
+
+          return updatedMessages;
+        });
+      } catch (fallbackError: any) {
+         console.error('OpenRouter Fallback Error:', fallbackError);
+         setMessages(prev => {
+          const updated = [...prev];
+          if (updated[updated.length - 1].content === '...') {
+            updated[updated.length - 1].content = `Error: Both primary (Gemini) and fallback models failed. ${fallbackError.message}`;
+          }
+          return updated;
+        });
+      }
     } finally {
       setIsLoading(false);
     }

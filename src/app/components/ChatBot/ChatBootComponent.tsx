@@ -25,25 +25,8 @@ export default function ChatBotComponent() {
   const [initialPrompt, setInitialPrompt] = useState<InitialPromptMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // --- Inicialización del SDK de Gemini ---
-  const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY as string;
-  let genAI: GoogleGenerativeAI | null = null;
-  let geminiModel: any = null;
-  try {
-    if (apiKey) {
-      genAI = new GoogleGenerativeAI(apiKey);
-      geminiModel = genAI.getGenerativeModel({ model: "gemini-flash-lite-latest" });
-    }
-  } catch (error) {
-    console.error("Error initializing Gemini SDK:", error);
-  }
-
-  const generationConfig = {
-    temperature: 0.1,
-    topP: 0.95,
-    topK: 64,
-    maxOutputTokens: 2048,
-  };
+  // Se eliminó la inicialización del SDK de GoogleGenerativeAI del cliente
+  // Se manejará en el backend (/api/chat)
 
   // --- Load agent context on mount ---
   useEffect(() => {
@@ -104,21 +87,24 @@ export default function ChatBotComponent() {
     try {
       const systemInstruction = initialPrompt[0].text;
 
-      // --- GEMINI API ---
-      console.log("Using Gemini API");
-      if (!geminiModel) throw new Error("No Gemini model available.");
-
-      const historyForPrompt = currentMessages.map(msg =>
-        `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`
-      ).join('\n');
-
-      const result: GenerateContentResult = await geminiModel.generateContent({
-        contents: [{ role: "user", parts: [{ text: historyForPrompt }] }],
-        generationConfig,
-        systemInstruction: systemInstruction
+      console.log("Using internal /api/chat backend");
+      
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+           messages: currentMessages,
+           systemInstruction: systemInstruction
+        })
       });
 
-      const assistantResponse = result.response.text();
+      if (!response.ok) {
+         const errData = await response.json();
+         throw new Error(errData.error || `Server error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const assistantResponse = data.response;
 
       setMessages(prev => {
         const updatedMessages = [...prev];
@@ -137,67 +123,14 @@ export default function ChatBotComponent() {
       });
 
     } catch (error: any) {
-      console.error('Gemini Error, attempting OpenRouter fallback:', error);
-      
-      try {
-        // --- OPENROUTER FALLBACK API ---
-        const openRouterApiKey = process.env.NEXT_PUBLIC_OPENROUTER_API_KEY as string;
-        if (!openRouterApiKey) throw new Error("No OpenRouter API Key available for fallback.");
-
-        const openRouterMessages = [
-          { role: 'system', content: initialPrompt[0].text },
-          ...currentMessages.map(msg => ({
-            role: msg.role === 'user' ? 'user' : 'assistant',
-            content: msg.content
-          }))
-        ];
-
-        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${openRouterApiKey}`,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            model: "google/gemini-2.5-flash", // Good general fallback model via OpenRouter
-            messages: openRouterMessages,
-            temperature: 0.1,
-            top_p: 0.95
-          })
-        });
-
-        if (!response.ok) {
-           throw new Error(`OpenRouter error: ${response.statusText}`);
+      console.error('Chat Error:', error);
+      setMessages(prev => {
+        const updated = [...prev];
+        if (updated[updated.length - 1].content === '...') {
+          updated[updated.length - 1].content = `Error: ${error.message}`;
         }
-        
-        const data = await response.json();
-        const assistantResponse = data.choices && data.choices[0]?.message?.content;
-
-        setMessages(prev => {
-          const updatedMessages = [...prev];
-          const lastMsgIndex = updatedMessages.length - 1;
-          if (updatedMessages[lastMsgIndex].content === '...') {
-            updatedMessages[lastMsgIndex] = { role: 'assistant', content: assistantResponse || 'No response.' };
-          }
-
-          fetch('/api/log-chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ messages: updatedMessages, timestamp: new Date().toISOString() })
-          }).catch(err => console.error("Error logging:", err));
-
-          return updatedMessages;
-        });
-      } catch (fallbackError: any) {
-         console.error('OpenRouter Fallback Error:', fallbackError);
-         setMessages(prev => {
-          const updated = [...prev];
-          if (updated[updated.length - 1].content === '...') {
-            updated[updated.length - 1].content = `Error: Both primary (Gemini) and fallback models failed. ${fallbackError.message}`;
-          }
-          return updated;
-        });
-      }
+        return updated;
+      });
     } finally {
       setIsLoading(false);
     }

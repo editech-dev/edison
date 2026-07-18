@@ -13,6 +13,14 @@ export const Navigation: React.FC = () => {
     const currentPath = usePathname();
     const router = useRouter();
 
+    // Track page views in this tab session for smart go-back fallbacks
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+            const count = parseInt(sessionStorage.getItem("nav_count") || "0", 10);
+            sessionStorage.setItem("nav_count", (count + 1).toString());
+        }
+    }, [currentPath]);
+
     useEffect(() => {
         if (!ref.current) return;
         const observer = new IntersectionObserver(([entry]) =>
@@ -27,7 +35,17 @@ export const Navigation: React.FC = () => {
     const isContactActive = currentPath === '/contact';
 
     const handleGoBack = () => {
-        router.back();
+        const count = typeof window !== "undefined" ? parseInt(sessionStorage.getItem("nav_count") || "0", 10) : 0;
+        if (count > 1) {
+            router.back();
+        } else {
+            // Smart fallback: if details page, go to index. Otherwise go home.
+            if (currentPath.startsWith('/repositories/')) {
+                router.push('/repositories');
+            } else {
+                router.push('/');
+            }
+        }
     };
 
     // Definimos el estilo base y hover que queremos para todos los elementos interactivos

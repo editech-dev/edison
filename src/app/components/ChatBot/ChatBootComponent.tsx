@@ -170,7 +170,7 @@ export default function ChatBotComponent() {
             });
             localSessionRef.current = session;
           } else {
-            throw new Error("Local AI (Gemini Nano) is not supported in this browser.");
+            throw new Error("Local AI mode is not supported in this browser.");
           }
         }
         assistantResponse = await localSessionRef.current.prompt(newUserMessage.content);
@@ -297,7 +297,7 @@ export default function ChatBotComponent() {
                       }`}
                     >
                       <FaCloud className="w-3.5 h-3.5" aria-hidden="true" />
-                      <span>Cloud (Gemini 3.5 Flash)</span>
+                      <span>Cloud AI</span>
                     </button>
                     <button
                       onClick={() => setActiveModel('local')}
@@ -308,7 +308,7 @@ export default function ChatBotComponent() {
                       }`}
                     >
                       <FaMicrochip className="w-3.5 h-3.5" aria-hidden="true" />
-                      <span>Local (Gemini Nano)</span>
+                      <span>Local AI</span>
                     </button>
                     {/* Sliding background highlight */}
                     <motion.div
@@ -324,7 +324,7 @@ export default function ChatBotComponent() {
                 ) : (
                   <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-900/60 border border-zinc-800 text-[11px] text-zinc-400">
                     <FaCloud className="w-3 h-3 text-zinc-500" aria-hidden="true" />
-                    <span>Gemini 3.5 Flash (Cloud)</span>
+                    <span>Cloud Mode</span>
                   </div>
                 )}
               </div>

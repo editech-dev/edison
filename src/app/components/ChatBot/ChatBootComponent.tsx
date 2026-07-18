@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useRef, useEffect } from 'react';
-import { FaComment, FaMinus } from 'react-icons/fa';
+import { FaComment, FaMinus, FaCloud, FaMicrochip } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -24,6 +24,11 @@ export default function ChatBotComponent() {
   const [isLoading, setIsLoading] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // --- Local AI State & Session References ---
+  const [isLocalSupported, setIsLocalSupported] = useState(false);
+  const [activeModel, setActiveModel] = useState<'cloud' | 'local'>('cloud');
+  const localSessionRef = useRef<any>(null);
+
   // --- Load agent context on mount ---
   useEffect(() => {
     const loadContext = async () => {
@@ -46,6 +51,71 @@ export default function ChatBotComponent() {
 
     loadContext();
   }, []);
+
+  // --- Check for Local Gemini Nano support on mount ---
+  useEffect(() => {
+    const checkLocalAI = async () => {
+      try {
+        const ai = typeof window !== 'undefined' ? (window as any).ai : undefined;
+        if (ai?.languageModel) {
+          const capabilities = await ai.languageModel.capabilities();
+          if (capabilities && capabilities.available !== 'no') {
+            setIsLocalSupported(true);
+          }
+        }
+      } catch (error) {
+        console.warn("Chrome Local AI check failed or unsupported:", error);
+      }
+    };
+    checkLocalAI();
+  }, []);
+
+  // --- Manage local AI session lifecycle ---
+  useEffect(() => {
+    const initSession = async () => {
+      const ai = typeof window !== 'undefined' ? (window as any).ai : undefined;
+      if (activeModel === 'local' && initialPrompt.length > 0 && ai?.languageModel) {
+        try {
+          if (localSessionRef.current) {
+            localSessionRef.current.destroy();
+            localSessionRef.current = null;
+          }
+          const systemInstruction = initialPrompt[0].text;
+          const session = await ai.languageModel.create({
+            systemPrompt: systemInstruction
+          });
+          localSessionRef.current = session;
+        } catch (error) {
+          console.error("Failed to initialize local AI session:", error);
+          setActiveModel('cloud');
+        }
+      }
+    };
+
+    if (activeModel === 'local') {
+      initSession();
+    } else {
+      if (localSessionRef.current) {
+        try {
+          localSessionRef.current.destroy();
+        } catch (e) {
+          console.error("Error destroying session:", e);
+        }
+        localSessionRef.current = null;
+      }
+    }
+
+    return () => {
+      if (localSessionRef.current) {
+        try {
+          localSessionRef.current.destroy();
+        } catch (e) {
+          console.error("Error destroying session on unmount:", e);
+        }
+        localSessionRef.current = null;
+      }
+    };
+  }, [activeModel, initialPrompt]);
 
   // --- Textarea auto-resize ---
   useEffect(() => {
@@ -89,23 +159,39 @@ export default function ChatBotComponent() {
 
     try {
       const systemInstruction = initialPrompt[0].text;
-      
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-           messages: currentMessages,
-           systemInstruction: systemInstruction
-        })
-      });
+      let assistantResponse = '';
 
-      if (!response.ok) {
-         const errData = await response.json();
-         throw new Error(errData.error || `Server error: ${response.status}`);
+      if (activeModel === 'local') {
+        const ai = typeof window !== 'undefined' ? (window as any).ai : undefined;
+        if (!localSessionRef.current) {
+          if (ai?.languageModel) {
+            const session = await ai.languageModel.create({
+              systemPrompt: systemInstruction
+            });
+            localSessionRef.current = session;
+          } else {
+            throw new Error("Local AI (Gemini Nano) is not supported in this browser.");
+          }
+        }
+        assistantResponse = await localSessionRef.current.prompt(newUserMessage.content);
+      } else {
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+             messages: currentMessages,
+             systemInstruction: systemInstruction
+          })
+        });
+
+        if (!response.ok) {
+           const errData = await response.json();
+           throw new Error(errData.error || `Server error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        assistantResponse = data.response;
       }
-
-      const data = await response.json();
-      const assistantResponse = data.response;
 
       setMessages(prev => {
         const updatedMessages = [...prev];
@@ -163,23 +249,85 @@ export default function ChatBotComponent() {
             transition={{ duration: 0.2, ease: "easeOut" }}
             role="dialog"
             aria-label="Chat assistant"
-            className="w-[360px] md:w-[400px] h-[500px] rounded-2xl border border-green-500/20 bg-zinc-950/85 backdrop-blur-md shadow-[0_0_30px_rgba(34,197,94,0.15)] overflow-hidden flex flex-col"
+            className={`w-[360px] md:w-[400px] h-[500px] rounded-2xl border bg-zinc-950/90 backdrop-blur-md overflow-hidden flex flex-col transition-all duration-300 ${
+              activeModel === 'local'
+                ? 'border-emerald-500/30 shadow-[0_0_30px_rgba(16,185,129,0.18)]'
+                : 'border-green-500/30 shadow-[0_0_30px_rgba(34,197,94,0.18)]'
+            }`}
           >
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800/80 bg-zinc-900/40">
-              <div className="flex flex-col">
-                <h5 className="font-semibold text-green-400 text-sm tracking-wide">Chat with CyberStack</h5>
-                <span className="text-[10px] text-zinc-400 opacity-80 mt-0.5">
-                  ☁️ Powered by Gemini
-                </span>
+            <div className="flex flex-col border-b border-zinc-800/80 bg-zinc-900/40 p-4 gap-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {/* Glowing active model status indicator */}
+                  <span className="relative flex h-2 w-2">
+                    <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                      activeModel === 'local' ? 'bg-emerald-400' : 'bg-green-400'
+                    }`}></span>
+                    <span className={`relative inline-flex rounded-full h-2 w-2 ${
+                      activeModel === 'local' ? 'bg-emerald-500' : 'bg-green-500'
+                    }`}></span>
+                  </span>
+                  <h5 className="font-semibold text-green-400 text-sm tracking-wide">CyberStack Assistant</h5>
+                </div>
+                
+                <button
+                  onClick={handleOpenChat}
+                  className="text-zinc-400 hover:text-green-400 transition-colors p-1.5 rounded-full hover:bg-zinc-800/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-400 cursor-pointer"
+                  aria-label="Minimize chat assistant"
+                >
+                  <FaMinus className="w-4 h-4" aria-hidden="true" />
+                </button>
               </div>
-              <button
-                onClick={handleOpenChat}
-                className="text-zinc-400 hover:text-green-400 transition-colors p-1.5 rounded-full hover:bg-zinc-800/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-400 cursor-pointer"
-                aria-label="Minimize chat assistant"
-              >
-                <FaMinus className="w-4 h-4" aria-hidden="true" />
-              </button>
+
+              {/* Model selection toggle or active model badge */}
+              <div className="flex justify-start">
+                {isLocalSupported ? (
+                  <div 
+                    className="flex bg-zinc-950/60 p-0.5 rounded-lg border border-zinc-850 text-[11px] relative w-full" 
+                    role="radiogroup" 
+                    aria-label="Model selection"
+                  >
+                    <button
+                      onClick={() => setActiveModel('cloud')}
+                      role="radio"
+                      aria-checked={activeModel === 'cloud'}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md font-medium transition-colors z-10 relative focus:outline-none focus-visible:ring-1 focus-visible:ring-green-400 cursor-pointer ${
+                        activeModel === 'cloud' ? 'text-green-400 font-semibold' : 'text-zinc-400 hover:text-zinc-200'
+                      }`}
+                    >
+                      <FaCloud className="w-3.5 h-3.5" aria-hidden="true" />
+                      <span>Cloud (Gemini 3.5 Flash)</span>
+                    </button>
+                    <button
+                      onClick={() => setActiveModel('local')}
+                      role="radio"
+                      aria-checked={activeModel === 'local'}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md font-medium transition-colors z-10 relative focus:outline-none focus-visible:ring-1 focus-visible:ring-green-400 cursor-pointer ${
+                        activeModel === 'local' ? 'text-green-400 font-semibold' : 'text-zinc-400 hover:text-zinc-200'
+                      }`}
+                    >
+                      <FaMicrochip className="w-3.5 h-3.5" aria-hidden="true" />
+                      <span>Local (Gemini Nano)</span>
+                    </button>
+                    {/* Sliding background highlight */}
+                    <motion.div
+                      className="absolute top-[2px] bottom-[2px] rounded-md bg-green-500/10 border border-green-500/25 shadow-[0_0_8px_rgba(34,197,94,0.1)]"
+                      layoutId="activeModelIndicator"
+                      transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                      style={{
+                        width: 'calc(50% - 3px)',
+                        left: activeModel === 'cloud' ? '2px' : 'calc(50% + 1px)',
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-900/60 border border-zinc-800 text-[11px] text-zinc-400">
+                    <FaCloud className="w-3 h-3 text-zinc-500" aria-hidden="true" />
+                    <span>Gemini 3.5 Flash (Cloud)</span>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Message Stream */}
@@ -187,7 +335,7 @@ export default function ChatBotComponent() {
               ref={chatContainerRef}
               role="log"
               aria-live="polite"
-              className="flex-grow p-4 overflow-y-auto space-y-4 scrollbar-thin scrollbar-thumb-zinc-800 scrollbar-track-transparent"
+              className="flex-grow p-4 overflow-y-auto space-y-4 scrollbar-thin scrollbar-thumb-zinc-800/80 hover:scrollbar-thumb-green-500/30 scrollbar-track-transparent"
             >
               {messages.length === 0 && (
                 <div className="text-zinc-500 text-xs italic text-center mt-8">
@@ -195,15 +343,18 @@ export default function ChatBotComponent() {
                 </div>
               )}
               {messages.map((msg, index) => (
-                <div
+                <motion.div
                   key={index}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.25 }}
                   className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
                     className={`max-w-[85%] rounded-lg p-3 text-sm leading-relaxed ${
                       msg.role === 'user'
-                        ? 'bg-green-950/30 border border-green-500/20 text-green-300'
-                        : 'bg-zinc-900/60 border border-zinc-800/60 text-zinc-200'
+                        ? 'bg-green-950/30 border border-green-500/20 text-green-300 shadow-[0_2px_8px_rgba(34,197,94,0.05)]'
+                        : 'bg-zinc-900/60 border border-zinc-800/60 text-zinc-200 shadow-[0_2px_8px_rgba(0,0,0,0.2)]'
                     }`}
                   >
                     <strong className="block text-[10px] uppercase tracking-wider mb-1 opacity-70">
@@ -223,13 +374,13 @@ export default function ChatBotComponent() {
                       </div>
                     )}
                   </div>
-                </div>
+                </motion.div>
               ))}
             </div>
 
             {/* Input Footer */}
             <div className="p-3 border-t border-zinc-800/80 bg-zinc-900/20">
-              <div className="flex gap-2 items-end bg-zinc-900/40 border border-zinc-800/80 rounded-xl px-3 py-2 focus-within:border-green-500/40 transition-colors">
+              <div className="flex gap-2 items-end bg-zinc-900/40 border border-zinc-800/80 rounded-xl px-3 py-2 focus-within:border-green-500/50 focus-within:ring-1 focus-within:ring-green-500/20 transition-all duration-300">
                 <textarea
                   ref={textareaRef}
                   value={userInput}
@@ -244,12 +395,12 @@ export default function ChatBotComponent() {
                   aria-label="Type your message"
                   rows={1}
                   disabled={isLoading}
-                  className="flex-grow bg-transparent text-sm text-zinc-100 outline-none resize-none max-h-32 min-h-[20px] placeholder-zinc-500 scrollbar-none py-0.5"
+                  className="flex-grow bg-transparent text-sm text-zinc-100 outline-none resize-none max-h-32 min-h-[20px] placeholder-zinc-650 scrollbar-none py-0.5 focus:outline-none"
                 />
                 <button
                   onClick={handleSendMessage}
                   disabled={isLoading || userInput.trim() === ''}
-                  className="px-3 py-1.5 rounded-lg bg-green-900/40 border border-green-500/30 text-green-400 text-xs font-medium hover:bg-green-950/60 hover:text-green-300 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-green-400"
+                  className="px-3.5 py-1.5 rounded-lg bg-green-500/10 border border-green-500/30 text-green-400 text-xs font-semibold hover:bg-green-500/20 hover:text-green-300 disabled:opacity-30 disabled:hover:bg-green-500/10 disabled:hover:text-green-400 disabled:cursor-not-allowed transition-all duration-300 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-1 focus-visible:ring-offset-zinc-900"
                 >
                   {isLoading ? '...' : 'Send'}
                 </button>

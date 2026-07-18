@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
+import { chatbotToolDeclarations, executeChatbotTool } from '@/app/utils/chatbot_tools';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,29 +14,87 @@ export async function POST(req: Request) {
 
     const geminiApiKey = process.env.GEMINI_API_KEY;
 
-    // --- GEMINI ATTEMPT WITH NEW SDK ---
+    // --- GEMINI ATTEMPT WITH NEW SDK & DYNAMIC TOOLS ---
     try {
       if (!geminiApiKey) throw new Error("GEMINI_API_KEY is not defined");
 
       const ai = new GoogleGenAI({ apiKey: geminiApiKey });
-      const historyForPrompt = messages.map(msg =>
-        `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`
-      ).join('\n');
+      
+      // Convert messages to Google Gen AI multi-turn contents format
+      const contents: any[] = messages.map(msg => ({
+        role: msg.role === 'user' ? 'user' : 'model',
+        parts: [{ text: msg.content }]
+      }));
 
-      const result = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: historyForPrompt,
-        config: {
-          temperature: 0.1,
-          topP: 0.95,
-          topK: 64,
-          maxOutputTokens: 2048,
-          systemInstruction: systemInstruction,
+      let loopCount = 0;
+      const maxLoops = 5;
+
+      while (loopCount < maxLoops) {
+        const result = await ai.models.generateContent({
+          model: 'gemini-3.5-flash',
+          contents: contents,
+          config: {
+            temperature: 0.15,
+            topP: 0.95,
+            topK: 64,
+            maxOutputTokens: 2048,
+            systemInstruction: systemInstruction,
+            tools: [{ functionDeclarations: chatbotToolDeclarations }]
+          }
+        });
+
+        const functionCalls = result.functionCalls;
+        if (!functionCalls || functionCalls.length === 0) {
+          // No tools to execute, return the final model response
+          const assistantResponse = result.text;
+          return NextResponse.json({ response: assistantResponse });
         }
-      });
 
-      const assistantResponse = result.text;
-      return NextResponse.json({ response: assistantResponse });
+        // Store model's function call intent in history
+        contents.push({
+          role: 'model',
+          parts: functionCalls.map(call => ({
+            functionCall: {
+              name: call.name,
+              args: call.args
+            }
+          }))
+        });
+
+        // Execute function calls requested by the model
+        const toolResponseParts = [];
+        for (const call of functionCalls) {
+          if (!call.name) continue;
+          console.log(`[Chatbot Skill Execution] Executing tool "${call.name}" with arguments:`, call.args);
+          try {
+            const toolResult = await executeChatbotTool(call.name, call.args);
+            toolResponseParts.push({
+              functionResponse: {
+                name: call.name,
+                response: toolResult
+              }
+            });
+          } catch (toolError: any) {
+            console.error(`[Chatbot Skill Error] Failed to execute tool "${call.name}":`, toolError.message || toolError);
+            toolResponseParts.push({
+              functionResponse: {
+                name: call.name,
+                response: { error: toolError.message || "Failed to execute tool." }
+              }
+            });
+          }
+        }
+
+        // Store function results in history for the next turn
+        contents.push({
+          role: 'tool',
+          parts: toolResponseParts
+        });
+
+        loopCount++;
+      }
+
+      throw new Error("Chatbot exceeded maximum tool calling loops without a final response.");
 
     } catch (geminiError: any) {
       console.error('Gemini call failed, attempting OpenRouterFallback:', geminiError.message || geminiError);
@@ -43,7 +102,7 @@ export async function POST(req: Request) {
       // --- OPENROUTER FALLBACK ---
       const openRouterApiKey = process.env.OPENROUTER_API_KEY;
       if (!openRouterApiKey) {
-          throw new Error("No OPENROUTER_API_KEY is available for fallback.");
+          throw new Error(`Primary Gemini failed and no OPENROUTER_API_KEY is available. Reason: ${geminiError.message}`);
       }
 
       const openRouterMessages = [
@@ -61,9 +120,9 @@ export async function POST(req: Request) {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash", 
+          model: "google/gemini-3.5-flash", 
           messages: openRouterMessages,
-          temperature: 0.1,
+          temperature: 0.15,
           top_p: 0.95
         })
       });

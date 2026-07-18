@@ -71,7 +71,7 @@ export const customMdxComponents: { [key: string]: React.ElementType } = {
             <Component
                 href={href || '#'}
                 className={clsx(
-                    "font-medium text-blue-400 underline underline-offset-4 hover:text-blue-300",
+                    "font-medium text-blue-400 underline underline-offset-4 hover:text-blue-300 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-green-400 focus-visible:ring-offset-zinc-900",
                     className
                 )}
                 {...(Component === 'a' && !isInternal && { target: '_blank', rel: 'noopener noreferrer' })}
@@ -116,7 +116,11 @@ export const customMdxComponents: { [key: string]: React.ElementType } = {
         <hr className="my-6 border-zinc-700" {...props} />
     ),
     table: ({ className, ...props }: React.HTMLAttributes<HTMLTableElement>) => (
-        <div className="my-6 w-full overflow-x-auto"> {/* Cambiado a overflow-x-auto para tablas anchas */}
+        <div
+            className="my-6 w-full overflow-x-auto rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-green-400 focus-visible:ring-offset-zinc-900"
+            tabIndex={0}
+            aria-label="Scrollable table"
+        >
             <table className={clsx("w-full border-collapse", className)} {...props} /> {/* Añadido border-collapse */}
         </div>
     ),

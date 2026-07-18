@@ -42,8 +42,8 @@ export default async function RepositoryDetails({ repoName }: RepositoryDetailsP
 
         return (
             <div className="container mx-auto px-6 py-12 text-center">
-                <p className="text-red-500 font-bold">Error de Configuración del Servidor.</p>
-                <p className="text-zinc-400 mt-2">Contacta al administrador.</p>
+                <p className="text-red-500 font-bold">Server Configuration Error.</p>
+                <p className="text-zinc-400 mt-2">Contact the administrator.</p>
             </div>
         );
     }
@@ -85,10 +85,10 @@ export default async function RepositoryDetails({ repoName }: RepositoryDetailsP
     if (!repoDetails) {
         return (
             <div className="container mx-auto px-6 py-12 text-center">
-                <p className="text-red-500">Error: No se encontraron detalles para el repositorio "{repoName}".</p>
-                <p className="text-zinc-400 mt-2">Verifica que el nombre sea correcto y que el repositorio exista.</p>
-                <Link href="/repositories" className="text-blue-400 hover:underline mt-4 inline-block">
-                    <FaArrowLeft className="w-4 h-4 inline mr-1" /> Volver a la lista
+                <p className="text-red-500">Error: Details not found for repository "{repoName}".</p>
+                <p className="text-zinc-400 mt-2">Verify that the name is correct and that the repository exists.</p>
+                <Link href="/repositories" className="text-blue-400 hover:underline mt-4 inline-block rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-400 focus-visible:ring-offset-zinc-900">
+                    <FaArrowLeft className="w-4 h-4 inline mr-1" aria-hidden="true" /> Back to list
                 </Link>
             </div>
         );
@@ -106,16 +106,17 @@ export default async function RepositoryDetails({ repoName }: RepositoryDetailsP
                                 href={repoDetails.html_url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="duration-200 hover:font-medium text-green-400 hover:text-green-300 flex items-center gap-1"
-                                title="Ver en GitHub"
+                                className="duration-200 hover:font-medium text-green-400 hover:text-green-300 flex items-center gap-1 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-green-400 focus-visible:ring-offset-zinc-900"
+                                title="View on GitHub"
                             >
-                                <FaGithub className="w-5 h-5" />
+                                <FaGithub className="w-5 h-5" aria-hidden="true" />
                                 <span>GitHub</span> {/* Texto explícito */}
                             </a>
                         )}
                         {/* Estrellas */}
-                        <span className="inline-flex items-center gap-1 text-zinc-400" title={`${repoDetails.stargazers_count} estrellas`}>
-                            <FaStar className="w-4 h-4" />
+                        <span className="inline-flex items-center gap-1 text-zinc-400" title={`${repoDetails.stargazers_count} stars`}>
+                            <FaStar className="w-4 h-4" aria-hidden="true" />
+                            <span className="sr-only">Stars: </span>
                             {repoDetails.stargazers_count}
                         </span>
                         {/* === Integración del ViewCounter === */}
@@ -163,7 +164,7 @@ export default async function RepositoryDetails({ repoName }: RepositoryDetailsP
                     </ReactMarkdown>
                 ) : (
                     // Mensaje si no hay README o falla la carga
-                    <p className="text-center text-zinc-400 mt-10 italic">No se encontró un archivo README.md o hubo un error al cargarlo.</p>
+                    <p className="text-center text-zinc-400 mt-10 italic">A README.md file could not be found or an error occurred while loading it.</p>
                 )}
             </article>
         </div>

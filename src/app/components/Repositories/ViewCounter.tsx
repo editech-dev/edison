@@ -109,9 +109,12 @@ export default function ViewCounter({ slug, initialViews, trackView = false, sho
 
   return (
     <span className="inline-flex items-center gap-1 text-sm text-zinc-400" title={error ?? undefined}>
-      <FaEye className={`w-4 h-4 ${error ? 'text-red-500' : ''}`} />
+      <FaEye className={`w-4 h-4 ${error ? 'text-red-500' : ''}`} aria-hidden="true" />
       {/* Muestra el conteo o un guion si hay error */}
-      {error ? '-' : Intl.NumberFormat("en-US", { notation: "compact" }).format(views)}
+      <span>
+        {error ? '-' : Intl.NumberFormat("en-US", { notation: "compact" }).format(views)}
+        <span className="sr-only"> views</span>
+      </span>
     </span>
   );
 }

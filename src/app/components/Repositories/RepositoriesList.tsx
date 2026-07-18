@@ -38,19 +38,19 @@ export default async function RepositoriesList() {
         <div className="w-full h-px bg-zinc-800" />
 
         {repositories.length > 0 ? (
-          <div className="grid grid-cols-1 gap-6 mx-auto lg:mx-0 md:grid-cols-2 lg:grid-cols-3">
+          <ul className="grid grid-cols-1 gap-6 mx-auto lg:mx-0 md:grid-cols-2 lg:grid-cols-3">
             {repositories.map((repo) => {
               const views = viewsData[repo.name] ?? 0; // Obtiene las vistas para este repo
 
               return (
-                <div
+                <li
                   key={repo.id}
                   className="bg-zinc-900 p-4 rounded-lg flex flex-col justify-between transition-all duration-300 ease-in-out hover:bg-zinc-800 border border-transparent hover:border-green-500/30"
                 >
                   <div>
                     <div className="flex justify-between items-start mb-3">
                       <h2 className="text-xl font-semibold">
-                        <Link href={`/repositories/${repo.name}`} className="text-green-400 hover:text-green-300 hover:underline break-words">
+                        <Link href={`/repositories/${repo.name}`} className="text-green-400 hover:text-green-300 hover:underline break-words rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-green-400 focus-visible:ring-offset-zinc-900">
                           {repo.name}
                         </Link>
                       </h2>
@@ -58,14 +58,14 @@ export default async function RepositoriesList() {
                         href={repo.html_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-sm text-zinc-400 hover:text-green-400 flex-shrink-0 ml-2"
-                        aria-label={`Ver ${repo.name} en GitHub`}
+                        className="text-sm text-zinc-400 hover:text-green-400 flex-shrink-0 ml-2 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-green-400 focus-visible:ring-offset-zinc-900"
+                        aria-label={`View ${repo.name} on GitHub`}
                       >
                         GitHub ↗
                       </a>
                     </div>
                     <p className="text-zinc-300 mb-4 text-sm flex-grow">
-                      {repo.description || 'Sin descripción.'}
+                      {repo.description || 'No description available.'}
                     </p>
                   </div>
 
@@ -73,12 +73,13 @@ export default async function RepositoriesList() {
                   <div className="flex items-center space-x-4 text-sm text-zinc-400 mt-auto pt-2 border-t border-zinc-700/50">
                     {repo.language && (
                       <span className="inline-flex items-center">
-                        <span className="mr-1.5">●</span>
+                        <span className="mr-1.5" aria-hidden="true">●</span>
                         {repo.language}
                       </span>
                     )}
                     <span className="inline-flex items-center">
-                      <FaStar className="h-4 w-4 mr-1" />
+                      <FaStar className="h-4 w-4 mr-1" aria-hidden="true" />
+                      <span className="sr-only">Stars: </span>
                       {repo.stargazers_count}
                     </span>
                     {/* Use ViewCounter for live updates */}
@@ -89,13 +90,13 @@ export default async function RepositoriesList() {
                       shouldFetch={true}
                     />
                   </div>
-                </div>
+                </li>
               );
             })}
-          </div>
+          </ul>
         ) : (
           <p className="text-zinc-400">
-            No se encontraron repositorios públicos o hubo un error al cargarlos.
+            No public repositories found, or an error occurred while loading them.
           </p>
         )}
       </div>

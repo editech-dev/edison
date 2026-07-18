@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,43 +8,42 @@ export async function POST(req: Request) {
     const { messages, systemInstruction } = await req.json();
 
     if (!messages || !Array.isArray(messages)) {
-      return NextResponse.json({ error: 'Formato de mensajes inválido' }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid messages format' }, { status: 400 });
     }
 
-    const geminiApiKey = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+    const geminiApiKey = process.env.GEMINI_API_KEY;
 
-    // --- GEMINI ATTEMPT ---
+    // --- GEMINI ATTEMPT WITH NEW SDK ---
     try {
-      if (!geminiApiKey) throw new Error("GEMINI_API_KEY no encontrada");
+      if (!geminiApiKey) throw new Error("GEMINI_API_KEY is not defined");
 
-      const genAI = new GoogleGenerativeAI(geminiApiKey);
-      const geminiModel = genAI.getGenerativeModel({ model: "gemini-flash-lite-latest" });
-
+      const ai = new GoogleGenAI({ apiKey: geminiApiKey });
       const historyForPrompt = messages.map(msg =>
         `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`
       ).join('\n');
 
-      const result = await geminiModel.generateContent({
-        contents: [{ role: "user", parts: [{ text: historyForPrompt }] }],
-        generationConfig: {
-            temperature: 0.1,
-            topP: 0.95,
-            topK: 64,
-            maxOutputTokens: 2048,
-        },
-        systemInstruction: systemInstruction
+      const result = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: historyForPrompt,
+        config: {
+          temperature: 0.1,
+          topP: 0.95,
+          topK: 64,
+          maxOutputTokens: 2048,
+          systemInstruction: systemInstruction,
+        }
       });
 
-      const assistantResponse = result.response.text();
+      const assistantResponse = result.text;
       return NextResponse.json({ response: assistantResponse });
 
     } catch (geminiError: any) {
-      console.error('Gemini Falló, intentando OpenRouterFallback:', geminiError.message || geminiError);
+      console.error('Gemini call failed, attempting OpenRouterFallback:', geminiError.message || geminiError);
 
       // --- OPENROUTER FALLBACK ---
-      const openRouterApiKey = process.env.OPENROUTER_API_KEY || process.env.NEXT_PUBLIC_OPENROUTER_API_KEY;
+      const openRouterApiKey = process.env.OPENROUTER_API_KEY;
       if (!openRouterApiKey) {
-          throw new Error("No hay OPENROUTER_API_KEY disponible para el fallback.");
+          throw new Error("No OPENROUTER_API_KEY is available for fallback.");
       }
 
       const openRouterMessages = [
@@ -70,7 +69,7 @@ export async function POST(req: Request) {
       });
 
       if (!response.ok) {
-         throw new Error(`Error en OpenRouter: ${response.statusText}`);
+         throw new Error(`OpenRouter Error: ${response.statusText}`);
       }
       
       const data = await response.json();
@@ -80,9 +79,9 @@ export async function POST(req: Request) {
     }
 
   } catch (error: any) {
-    console.error('Error procesando chat:', error);
+    console.error('Error processing chat:', error);
     return NextResponse.json(
-      { error: error.message || 'Error interno procesando mensaje de chat' },
+      { error: error.message || 'Internal error processing chat message' },
       { status: 500 }
     );
   }

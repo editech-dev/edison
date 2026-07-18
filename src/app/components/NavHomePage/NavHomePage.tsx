@@ -12,13 +12,14 @@ export const NavHomePage = () => {
     <nav className="my-16 animate-fade-in">
         <ul className="flex items-center justify-center gap-4">
           {navigation.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="text-sm duration-500 text-white hover:text-green-300"
-            >
-              {item.name}
-            </Link>
+            <li key={item.href}>
+              <Link
+                href={item.href}
+                className="text-sm duration-500 text-white hover:text-green-300 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-green-400 focus-visible:ring-offset-black"
+              >
+                {item.name}
+              </Link>
+            </li>
           ))}
         </ul>
       </nav>

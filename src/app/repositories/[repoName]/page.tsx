@@ -29,15 +29,15 @@ export async function generateMetadata({ params: paramsPromise }: RepositoryPage
     if (typeof repoName !== 'string' || !repoName) {
       console.error("generateMetadata: repoName is not a valid string or is empty:", repoName);
       console.error("generateMetadata: Failing resolved params object was:", params);
-      return { title: "Error: Nombre de repositorio inválido" };
+      return { title: "Error: Invalid repository name" };
     }
 
     return {
-      title: `Repositorio: ${repoName}`,
+      title: `Repository: ${repoName}`,
     };
   } catch (error) {
     console.error("Error resolving params or generating metadata:", error);
-    return { title: "Error al generar metadatos" };
+    return { title: "Error generating metadata" };
   }
 }
 
@@ -78,7 +78,7 @@ export default async function RepositoryPage({ params: paramsPromise }: Reposito
       // notFound(); // Lanza un 404
       return ( // O muestra un error
         <div className="text-red-500 p-10">
-          Error: Nombre de repositorio inválido o no proporcionado.
+          Error: Invalid or missing repository name.
         </div>
       );
     }
@@ -96,7 +96,7 @@ export default async function RepositoryPage({ params: paramsPromise }: Reposito
     // notFound(); // Puedes lanzar 404 en caso de error al resolver params
      return ( // O mostrar un mensaje de error genérico
         <div className="text-red-500 p-10">
-          Error al cargar la información del repositorio.
+          Error loading repository information.
         </div>
       );
   }

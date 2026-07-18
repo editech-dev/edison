@@ -40,13 +40,15 @@ export default function Contact() {
                             <Link
                                 href={s.href}
                                 target="_blank"
-                                className="p-4 relative flex flex-col items-center gap-4 duration-700 group md:gap-8 md:py-24  lg:pb-48  md:p-16"
+                                rel="noopener noreferrer"
+                                className="p-4 relative flex flex-col items-center gap-4 duration-700 group md:gap-8 md:py-24  lg:pb-48  md:p-16 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-green-400 focus-visible:ring-offset-black"
+                                aria-label={`${s.label} profile: ${s.handle}`}
                             >
                                 <span
                                     className="absolute w-px h-2/3 bg-gradient-to-b from-green-400 via-green-400/50 to-transparent"
                                     aria-hidden="true"
                                 />
-                                <span className="relative z-10 flex items-center justify-center w-12 h-12 text-sm duration-1000 border rounded-full text-white group-hover:text-green-400 border-green-400 bg-green-700 group-hover:bg-white group-hover:border-white drop-shadow-orange">
+                                <span className="relative z-10 flex items-center justify-center w-12 h-12 text-sm duration-1000 border rounded-full text-white group-hover:text-green-400 border-green-400 bg-green-700 group-hover:bg-white group-hover:border-white shadow-[0_0_15px_rgba(74,222,128,0.3)]" aria-hidden="true">
                                     {s.icon}
                                 </span>{" "}
                                 <div className="z-10 flex flex-col items-center">

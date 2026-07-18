@@ -11,6 +11,33 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  --animate-glow: glow 2s ease-in-out infinite alternate;
+  --animate-fade-in: fade-in 1s ease-out forwards;
+  --animate-fade-left: fade-left 1s ease-out forwards;
+  --animate-fade-right: fade-right 1s ease-out forwards;
+  --animate-title: title 2s ease-out forwards;
+
+  @keyframes glow {
+    0% { text-shadow: 0 0 5px rgba(34, 197, 94, 0.4); }
+    100% { text-shadow: 0 0 20px rgba(34, 197, 94, 0.8); }
+  }
+  @keyframes fade-in {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+  }
+  @keyframes fade-left {
+    0% { transform: translateX(50px); opacity: 0; }
+    100% { transform: translateX(0); opacity: 1; }
+  }
+  @keyframes fade-right {
+    0% { transform: translateX(-50px); opacity: 0; }
+    100% { transform: translateX(0); opacity: 1; }
+  }
+  @keyframes title {
+    0% { opacity: 0; letter-spacing: -0.2em; filter: blur(8px); }
+    100% { opacity: 1; letter-spacing: 0.05em; filter: blur(0); }
+  }
 }
 
 /* 
@@ -21,5 +48,5 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
 }

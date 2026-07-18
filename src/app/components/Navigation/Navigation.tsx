@@ -31,9 +31,9 @@ export const Navigation: React.FC = () => {
     };
 
     // Definimos el estilo base y hover que queremos para todos los elementos interactivos
-    const commonLinkStyle = "duration-200 text-green-400 hover:text-green-300";
+    const commonLinkStyle = "duration-200 text-green-400 hover:text-green-300 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-green-400 focus-visible:ring-offset-zinc-900";
     // Para el botón, añadimos también los estilos de foco y cursor
-    const commonButtonStyle = `${commonLinkStyle} focus:outline-none cursor-pointer`;
+    const commonButtonStyle = "duration-200 text-green-400 hover:text-green-300 cursor-pointer rounded-full p-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-green-400 focus-visible:ring-offset-zinc-900";
 
     return (
         <header ref={ref}>
@@ -41,12 +41,12 @@ export const Navigation: React.FC = () => {
                 className={`fixed inset-x-0 top-0 z-50 backdrop-blur duration-200 border-b ${
                     isIntersecting
                         ? "bg-zinc-900/0 border-transparent"
-                        : "bg-zinc-900/500 border-zinc-800"
+                        : "bg-zinc-900/80 border-zinc-800/60 backdrop-blur-md"
                 }`}
             >
                 <div className="container flex flex-row-reverse items-center justify-between p-6 mx-auto">
                     {/* Links de Navegación */}
-                    <div className="flex justify-between gap-8">
+                    <nav className="flex justify-between gap-8" aria-label="Main Navigation">
                         {/* Enlace Projects / Home */}
                         <Link
                             href={isProjectsActive ? '/' : '/repositories'}
@@ -68,7 +68,7 @@ export const Navigation: React.FC = () => {
                         >
                             {isContactActive ? 'Home' : 'Contact'}
                         </Link>
-                    </div>
+                    </nav>
 
                     {/* Botón "Atrás" */}
                     <button
@@ -78,9 +78,9 @@ export const Navigation: React.FC = () => {
                         // Se aplica el estilo común de botón (que incluye el de enlace + extras)
                         className={commonButtonStyle}
                         // ---- FIN CAMBIO Estilo ----
-                        aria-label="Volver a la página anterior"
+                        aria-label="Go back to the previous page"
                     >
-                        <FaArrowLeft className="w-6 h-6" />
+                        <FaArrowLeft className="w-6 h-6" aria-hidden="true" />
                     </button>
                 </div>
             </div>

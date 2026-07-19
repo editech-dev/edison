@@ -173,7 +173,29 @@ export default function ChatBotComponent() {
             throw new Error("Local AI mode is not supported in this browser.");
           }
         }
-        assistantResponse = await localSessionRef.current.prompt(newUserMessage.content);
+
+        const stream = localSessionRef.current.promptStreaming(newUserMessage.content);
+        
+        setMessages(prev => {
+          const updated = [...prev];
+          const lastIndex = updated.length - 1;
+          if (updated[lastIndex].content === '...') {
+            updated[lastIndex] = { role: 'assistant', content: '' };
+          }
+          return updated;
+        });
+
+        let accumulatedLocal = '';
+        for await (const chunk of stream) {
+          accumulatedLocal = chunk;
+          setMessages(prev => {
+            const updated = [...prev];
+            const lastIndex = updated.length - 1;
+            updated[lastIndex] = { role: 'assistant', content: accumulatedLocal };
+            return updated;
+          });
+        }
+        assistantResponse = accumulatedLocal;
       } else {
         const response = await fetch('/api/chat', {
           method: 'POST',
@@ -185,26 +207,52 @@ export default function ChatBotComponent() {
         });
 
         if (!response.ok) {
-           const errData = await response.json();
-           throw new Error(errData.error || `Server error: ${response.status}`);
+           const errText = await response.text();
+           throw new Error(errText || `Server error: ${response.status}`);
         }
 
-        const data = await response.json();
-        assistantResponse = data.response;
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+        if (!reader) {
+          throw new Error("No reader available on response body.");
+        }
+
+        setMessages(prev => {
+          const updated = [...prev];
+          const lastIndex = updated.length - 1;
+          if (updated[lastIndex].content === '...') {
+            updated[lastIndex] = { role: 'assistant', content: '' };
+          }
+          return updated;
+        });
+
+        let accumulatedResponse = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          accumulatedResponse += chunk;
+
+          setMessages(prev => {
+            const updated = [...prev];
+            const lastIndex = updated.length - 1;
+            updated[lastIndex] = { role: 'assistant', content: accumulatedResponse };
+            return updated;
+          });
+        }
+        
+        assistantResponse = accumulatedResponse;
       }
 
       setMessages(prev => {
         const updatedMessages = [...prev];
-        const lastMsgIndex = updatedMessages.length - 1;
-        if (updatedMessages[lastMsgIndex].content === '...') {
-          updatedMessages[lastMsgIndex] = { role: 'assistant', content: assistantResponse || 'No response.' };
-        }
 
         fetch('/api/log-chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ messages: updatedMessages, timestamp: new Date().toISOString() })
-        }).catch(err => console.error("Error logging:", err));
+        }).catch(err => console.error("Error logging chat:", err));
 
         return updatedMessages;
       });

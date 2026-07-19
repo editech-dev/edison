@@ -115,7 +115,7 @@ export default async function RepositoryDetails({ repoName }: RepositoryDetailsP
                         )}
                         {/* Estrellas */}
                         <span className="inline-flex items-center gap-1 text-zinc-400" title={`${repoDetails.stargazers_count} stars`}>
-                            <FaStar className="w-4 h-4" aria-hidden="true" />
+                            <FaStar className={`w-4 h-4 ${repoDetails.stargazers_count > 0 ? 'text-yellow-500 animate-pulse' : ''}`} aria-hidden="true" />
                             <span className="sr-only">Stars: </span>
                             {repoDetails.stargazers_count}
                         </span>

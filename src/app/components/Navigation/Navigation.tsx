@@ -55,7 +55,7 @@ export const Navigation: React.FC = () => {
     const commonButtonStyle = "duration-200 text-green-400 hover:text-green-300 cursor-pointer rounded-full p-1 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-green-400 focus-visible:ring-offset-zinc-900";
 
     return (
-        <header ref={ref}>
+        <header ref={ref} className="no-print">
             <div
                 className={`fixed inset-x-0 top-0 z-50 backdrop-blur duration-200 border-b ${
                     isIntersecting

@@ -1,5 +1,5 @@
 "use client"
-import { SiLinkedin, SiGithub } from "react-icons/si";
+import { FaLinkedin, FaGithub } from "react-icons/fa";
 import { AiOutlineMail } from "react-icons/ai";
 
 import React from 'react'
@@ -10,7 +10,7 @@ import { Card } from "@/app/components/Card/card";
 
 const socials = [
     {
-        icon: <SiLinkedin size={20} />,
+        icon: <FaLinkedin size={20} />,
         href: "https://www.linkedin.com/in/edison-isaza",
         label: "Linkedin",
         handle: "@edison",
@@ -22,7 +22,7 @@ const socials = [
         handle: "edisonisaza@gmail.com",
     },
     {
-        icon: <SiGithub size={20} />,
+        icon: <FaGithub size={20} />,
         href: "https://github.com/editech-dev",
         label: "Github",
         handle: "editech-dev",

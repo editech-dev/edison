@@ -15,7 +15,7 @@ This project features **CyberStack**, an advanced AI Assistant designed to repre
 *   **Chat Memory**: Full conversation history persistence using Redis.
 
 ### ⚡ Tech Stack
-*   **Frontend**: Next.js 15 (App Router), Tailwind CSS, Framer Motion.
+*   **Frontend**: Next.js 16 (App Router), Tailwind CSS, Framer Motion.
 *   **AI Core**: Google Gemini Flash Lite (via Google Generative AI SDK).
 *   **Database**: Redis (for chat logs).
 *   **SEO**: Dynamic Sitemap, Robots.txt, JSON-LD Schema, and Open Graph Metadata.
@@ -81,10 +81,9 @@ src/
     cd edison-dev
     ```
 
-2.  **Install dependencies**:
+2.  **Install dependencies** (pnpm only — the project pins `pnpm@11.12.0` via the `packageManager` field; enable [Corepack](https://nodejs.org/api/corepack.html) with `corepack enable` to use the exact pinned version automatically):
     ```bash
     pnpm install
-    # or npm install
     ```
 
 3.  **Configure Environment**:
@@ -117,6 +116,44 @@ Returns the full message history for a specific session ID.
 ```http
 GET /api/chats/{chatId}
 ```
+
+## 🚑 Troubleshooting
+
+### Vercel production build fails with `ERR_PNPM_IGNORED_BUILDS`
+
+**Symptom** (observed 2026-07-19): Preview deployments built successfully, but Production deployments died during dependency installation, before `next build` even started:
+
+```
+[ERR_PNPM_IGNORED_BUILDS] Ignored build scripts: @google/genai@2.12.0, esbuild@0.28.1, protobufjs@7.6.5, sharp@0.34.5
+Run "pnpm approve-builds" to pick which dependencies should be allowed to run scripts.
+Error: Command "pnpm install" exited with 1
+```
+
+**Root cause** — two factors combined:
+
+1. **pnpm 11 breaking changes.** The repo pins `packageManager: pnpm@11.12.0`. In pnpm 11, `strictDepBuilds` defaults to `true`: any dependency shipping lifecycle scripts (`preinstall`/`postinstall`/`install`) that has not been explicitly approved or denied makes `pnpm install` exit with code 1. pnpm 11 also **removed** the legacy settings (`onlyBuiltDependencies`, `neverBuiltDependencies`, `ignoredBuiltDependencies`, …) and **no longer reads configuration from `package.json` (`pnpm` field) or `.npmrc`/`.pnpmrc`** (those files are auth/registry-only now). Consequently, former fix attempts — a `pnpm.onlyBuiltDependencies` field, a `.pnpmrc` file, and a `PNPM_ONLY_BUILT_DEPENDENCIES` Vercel env var — were all silently ignored.
+2. **Vercel environment divergence.** `ENABLE_EXPERIMENTAL_COREPACK=1` was configured for the **Production** environment only, so Production resolved the pinned pnpm 11.12.0 through Corepack. Preview had no such variable, so Vercel fell back to pnpm 9.x, which executes dependency build scripts by default — hence "works in Preview, fails in Production".
+
+**Fix applied**:
+
+1. **`pnpm-workspace.yaml`** (repo root) explicitly approves the four dependencies that ship install scripts, satisfying `strictDepBuilds`:
+    ```yaml
+    allowBuilds:
+      "@google/genai": true
+      esbuild: true
+      protobufjs: true
+      sharp: true
+    ```
+2. **`ENABLE_EXPERIMENTAL_COREPACK=1` enabled for all Vercel environments** (Production, Preview, Development) so every deployment installs with the same pinned pnpm version.
+3. **Removed the dead `PNPM_ONLY_BUILT_DEPENDENCIES` env var** from Vercel (ignored by pnpm 11).
+
+**Rejected alternatives**:
+
+*   `strictDepBuilds: false` — the install passes, but the scripts still do not run, leaving `sharp`/`esbuild` potentially degraded at runtime.
+*   `dangerouslyAllowAllBuilds: true` — works, but disables pnpm 11's supply-chain protection entirely.
+*   Downgrading to pnpm 10 — loses the version pin and security posture for no real gain.
+
+**References**: [pnpm 11 release notes](https://github.com/pnpm/pnpm/releases/tag/v11.0.0) · [pnpm `allowBuilds` setting](https://pnpm.io/settings#allowbuilds) · [pnpm `strictDepBuilds` setting](https://pnpm.io/settings#strictdepbuilds) · [Vercel Corepack support](https://vercel.com/docs/deployments/configure-a-build#corepack)
 
 ## 📄 License
 

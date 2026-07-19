@@ -108,6 +108,7 @@ The agent must ensure consistency with the following project architectural guide
 
 ### D. Package Manager Commands
 - **Only pnpm**: Use only and exclusively `pnpm` for installing dependencies and running scripts (e.g., `pnpm dev`, `pnpm build`, `pnpm lint`).
+- **pnpm 11 pinned via Corepack**: `packageManager` is pinned to `pnpm@11.12.0`, and Vercel uses Corepack (`ENABLE_EXPERIMENTAL_COREPACK=1`) in **all** environments (Production, Preview, Development) so installs are deterministic. pnpm 11 blocks dependency build scripts by default (`strictDepBuilds: true`); approved builds live **only** in `pnpm-workspace.yaml` under `allowBuilds`. Do NOT reintroduce `onlyBuiltDependencies` in `package.json`, `.npmrc`/`.pnpmrc`, or `PNPM_ONLY_BUILT_DEPENDENCIES` env vars — pnpm 11 ignores all of them (see README.md → Troubleshooting).
 
 ---
 

@@ -109,7 +109,9 @@ export default function CvClientPage({ profile }: CvClientPageProps) {
               </div>
               <div className="contact-item flex items-center gap-2">
                 <FaPhone className="w-3.5 h-3.5 text-green-500/70 no-print" />
-                <span>{personal.contact.phone}</span>
+                <a href={`tel:${personal.contact.phone}`} className="hover:text-green-300 transition-colors">
+                  {personal.contact.phone}
+                </a>
               </div>
               <div className="contact-item flex items-center gap-2">
                 <FaMapMarkerAlt className="w-3.5 h-3.5 text-green-500/70 no-print" />

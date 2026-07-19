@@ -10,6 +10,7 @@ import {
   FaGithub, 
   FaGlobe,
   FaFilePdf,
+  FaFileDownload,
   FaLanguage
 } from 'react-icons/fa';
 import styles from './CvPage.module.css';
@@ -44,6 +45,30 @@ export default function CvClientPage({ profile }: CvClientPageProps) {
     window.print();
   };
 
+  const handleDownloadProfessional = async () => {
+    try {
+      const response = await fetch(`/api/cv-pdf?lang=${lang}`);
+      if (!response.ok) throw new Error('Failed to generate PDF');
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = isEs
+        ? 'Edison_Isaza_CV_Profesional.pdf'
+        : 'Edison_Isaza_Professional_Resume.pdf';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch {
+      alert(
+        isEs
+          ? 'Error al generar el PDF. Intenta de nuevo.'
+          : 'Error generating PDF. Please try again.'
+      );
+    }
+  };
+
   return (
     <div className={`relative pb-24 bg-gradient-to-tl from-black via-zinc-600/20 to-black min-h-screen text-zinc-200 font-sans ${styles.cvPageContainer}`}>
       
@@ -58,7 +83,7 @@ export default function CvClientPage({ profile }: CvClientPageProps) {
           </p>
         </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {/* Language Toggle Button */}
           <button
             onClick={() => setLang(prev => prev === 'es' ? 'en' : 'es')}
@@ -77,6 +102,17 @@ export default function CvClientPage({ profile }: CvClientPageProps) {
           >
             <FaFilePdf className="w-4 h-4" />
             <span>{isEs ? "Exportar PDF" : "Export PDF"}</span>
+          </button>
+
+          {/* Download Professional CV Button */}
+          <button
+            onClick={handleDownloadProfessional}
+            className="bg-green-500/10 border border-green-500/40 hover:bg-green-500 hover:text-black text-green-400 rounded-full px-4 py-2 flex items-center gap-2 cursor-pointer transition-all duration-300 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-green-400"
+            aria-label={isEs ? "Descargar CV Profesional" : "Download Professional CV"}
+            title={isEs ? "Descarga un PDF con diseño profesional de dos columnas" : "Download a professionally designed two-column PDF"}
+          >
+            <FaFileDownload className="w-4 h-4" />
+            <span>{isEs ? "Descargar CV Profesional" : "Download Professional CV"}</span>
           </button>
         </div>
       </div>

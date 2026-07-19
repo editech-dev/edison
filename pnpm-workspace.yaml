@@ -1,0 +1,10 @@
+# pnpm 11 configuration
+# pnpm 11 blocks dependency build scripts by default (supply-chain protection)
+# and fails installs with ERR_PNPM_IGNORED_BUILDS when strictDepBuilds is enabled
+# (default: true). Dependencies below are explicitly approved to run their
+# lifecycle scripts. See README.md → Troubleshooting for the full rationale.
+allowBuilds:
+  "@google/genai": true
+  esbuild: true
+  protobufjs: true
+  sharp: true

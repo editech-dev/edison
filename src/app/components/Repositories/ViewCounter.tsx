@@ -10,9 +10,10 @@ interface ViewCounterProps {
   initialViews: number;
   trackView?: boolean; // If true, POST to increment
   shouldFetch?: boolean; // If true (and not tracking), GET to update
+  language?: 'es' | 'en';
 }
 
-export default function ViewCounter({ slug, initialViews, trackView = false, shouldFetch = false }: ViewCounterProps) {
+export default function ViewCounter({ slug, initialViews, trackView = false, shouldFetch = false, language = 'en' }: ViewCounterProps) {
   const [views, setViews] = useState(initialViews);
   const [hasTracked, setHasTracked] = useState(false);
   const [error, setError] = useState<string | null>(null); // Para mostrar errores de API
@@ -113,7 +114,7 @@ export default function ViewCounter({ slug, initialViews, trackView = false, sho
       {/* Muestra el conteo o un guion si hay error */}
       <span>
         {error ? '-' : Intl.NumberFormat("en-US", { notation: "compact" }).format(views)}
-        <span className="sr-only"> views</span>
+        <span className="sr-only"> {language === 'es' ? 'vistas' : 'views'}</span>
       </span>
     </span>
   );

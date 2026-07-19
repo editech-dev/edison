@@ -219,37 +219,39 @@ export default function ChatBotComponent() {
         return updated;
       });
     } finally {
-      setIsLoading(false);
+  setIsLoading(false);
     }
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end no-print">
-      {/* Toggle button */}
-      <button
-        onClick={handleOpenChat}
-        className={`w-14 h-14 rounded-full bg-zinc-950 border border-green-500/40 text-green-400 flex items-center justify-center shadow-[0_0_15px_rgba(34,197,94,0.2)] hover:shadow-[0_0_20px_rgba(34,197,94,0.4)] hover:text-green-300 transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-green-400 focus-visible:ring-offset-black cursor-pointer ${
-          isOpen ? 'scale-0 opacity-0 pointer-events-none' : 'scale-100 opacity-100'
-        }`}
-        aria-label="Open chat assistant"
-        aria-expanded={isOpen}
-        aria-controls="chat-assistant-container"
-      >
-        <FaComment className="w-6 h-6" aria-hidden="true" />
-      </button>
-
-      {/* Chat window container */}
-      <AnimatePresence>
-        {isOpen && (
+    <div className="fixed bottom-6 right-6 z-50 no-print">
+      <AnimatePresence mode="wait">
+        {!isOpen ? (
+          <motion.button
+            key="chat-button"
+            onClick={handleOpenChat}
+            initial={{ scale: 0.85, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.85, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="w-14 h-14 rounded-full bg-zinc-950 border border-green-500/40 text-green-400 flex items-center justify-center shadow-[0_0_15px_rgba(34,197,94,0.2)] hover:shadow-[0_0_20px_rgba(34,197,94,0.4)] hover:text-green-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-green-400 focus-visible:ring-offset-black cursor-pointer"
+            aria-label="Open chat assistant"
+            aria-expanded={isOpen}
+            aria-controls="chat-assistant-container"
+          >
+            <FaComment className="w-6 h-6" aria-hidden="true" />
+          </motion.button>
+        ) : (
           <motion.div
+            key="chat-window"
             id="chat-assistant-container"
-            initial={{ opacity: 0, y: 50, scale: 0.95 }}
+            initial={{ opacity: 0, y: 30, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 50, scale: 0.95 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
+            exit={{ opacity: 0, y: 30, scale: 0.95 }}
+            transition={{ duration: 0.25, ease: "easeOut" }}
             role="dialog"
             aria-label="Chat assistant"
-            className={`w-[360px] md:w-[400px] h-[500px] rounded-2xl border bg-zinc-950/90 backdrop-blur-md overflow-hidden flex flex-col transition-all duration-300 ${
+            className={`w-[360px] md:w-[400px] h-[500px] rounded-2xl border bg-zinc-950/90 backdrop-blur-md overflow-hidden flex flex-col transition-[border-color,box-shadow] duration-300 ${
               activeModel === 'local'
                 ? 'border-emerald-500/30 shadow-[0_0_30px_rgba(16,185,129,0.18)]'
                 : 'border-green-500/30 shadow-[0_0_30px_rgba(34,197,94,0.18)]'
@@ -314,10 +316,12 @@ export default function ChatBotComponent() {
                     <motion.div
                       className="absolute top-[2px] bottom-[2px] rounded-md bg-green-500/10 border border-green-500/25 shadow-[0_0_8px_rgba(34,197,94,0.1)]"
                       layoutId="activeModelIndicator"
+                      animate={{
+                        left: activeModel === 'cloud' ? '2px' : 'calc(50% + 1px)'
+                      }}
                       transition={{ type: "spring", stiffness: 350, damping: 30 }}
                       style={{
-                        width: 'calc(50% - 3px)',
-                        left: activeModel === 'cloud' ? '2px' : 'calc(50% + 1px)',
+                        width: 'calc(50% - 3px)'
                       }}
                     />
                   </div>
@@ -400,7 +404,7 @@ export default function ChatBotComponent() {
                 <button
                   onClick={handleSendMessage}
                   disabled={isLoading || userInput.trim() === ''}
-                  className="px-3.5 py-1.5 rounded-lg bg-green-500/10 border border-green-500/30 text-green-400 text-xs font-semibold hover:bg-green-500/20 hover:text-green-300 disabled:opacity-30 disabled:hover:bg-green-500/10 disabled:hover:text-green-400 disabled:cursor-not-allowed transition-all duration-300 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-1 focus-visible:ring-offset-zinc-900"
+                  className="px-3.5 py-1.5 rounded-lg bg-green-500/10 border border-green-500/30 text-green-400 text-xs font-semibold hover:bg-green-500/20 hover:text-green-300 disabled:opacity-30 disabled:hover:bg-green-500/10 disabled:hover:text-green-400 disabled:cursor-not-allowed transition-all duration-300 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-offset-zinc-900"
                 >
                   {isLoading ? '...' : 'Send'}
                 </button>

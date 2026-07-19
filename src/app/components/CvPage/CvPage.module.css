@@ -42,7 +42,7 @@
 
   :global(.professional-title) {
     font-size: 10pt !important;
-    color: #0f766e !important; /* Teal for high contrast */
+    color: #1d4ed8 !important; /* Teal for high contrast */
     margin-bottom: 6pt !important;
   }
 
@@ -80,7 +80,7 @@
 
   :global(.section-divider) {
     height: 1pt !important;
-    background: #0f766e !important; /* Solid line */
+    background: #1d4ed8 !important; /* Solid line */
     margin-bottom: 6pt !important;
   }
 
@@ -175,7 +175,7 @@
   :global(.experience-role) {
     font-size: 8pt !important;
     background: none !important;
-    color: #0f766e !important;
+    color: #1d4ed8 !important;
     padding: 0 !important;
     font-weight: 700 !important;
   }
@@ -206,7 +206,7 @@
   }
 
   :global(.education-item) {
-    border-left: 2px solid #0f766e !important;
+    border-left: 2px solid #1d4ed8 !important;
     padding-left: 8pt !important;
     margin-bottom: 0 !important;
   }
@@ -225,7 +225,7 @@
 
   :global(.education-institution) {
     font-size: 8pt !important;
-    color: #0f766e !important;
+    color: #1d4ed8 !important;
     font-weight: 600 !important;
   }
 
@@ -286,7 +286,7 @@
 
   :global(.language-level) {
     font-size: 8pt !important;
-    color: #0f766e !important;
+    color: #1d4ed8 !important;
     background: none !important;
     border: none !important;
     padding: 0 !important;
@@ -301,7 +301,7 @@
   }
 
   :global(.presentation-item) {
-    border-left: 2px solid #0f766e !important;
+    border-left: 2px solid #1d4ed8 !important;
     padding-left: 8pt !important;
     background: none !important;
     border-top: none !important;
@@ -333,7 +333,7 @@
 
   :global(.presentation-meta) {
     font-size: 8pt !important;
-    color: #0f766e !important;
+    color: #1d4ed8 !important;
     font-weight: 500 !important;
   }
 

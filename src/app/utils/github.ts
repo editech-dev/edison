@@ -20,6 +20,7 @@ export interface GitHubRepository {
   description: string | null;
   language: string | null;
   stargazers_count: number;
+  updated_at: string;
 }
 
 export interface BilingualContent {
@@ -94,6 +95,7 @@ export async function processBilingualRepository(
   htmlUrl: string,
   programmingLang: string | null,
   stars: number,
+  updatedAt: string,
   freshDescription: string | null,
   freshReadme: string | null
 ): Promise<BilingualRepository> {
@@ -144,6 +146,7 @@ export async function processBilingualRepository(
       html_url: htmlUrl,
       language: programmingLang,
       stargazers_count: stars,
+      updated_at: updatedAt,
       description: freshDescription,
       originalLanguage: detectedLang,
       languageChangeNotified,
@@ -203,6 +206,7 @@ export async function processBilingualRepository(
     html_url: htmlUrl,
     language: programmingLang,
     stargazers_count: stars,
+    updated_at: updatedAt,
     description: freshDescription,
     originalLanguage: detectedLang,
     es: {
@@ -289,6 +293,7 @@ export const getPublicRepositories = cache(async (): Promise<BilingualRepository
         item.repo.html_url,
         item.repo.language,
         item.repo.stargazers_count,
+        item.repo.updated_at,
         item.repo.description,
         item.readmeContent
       );
@@ -350,6 +355,7 @@ export const getRepositoryByName = cache(async (repoName: string): Promise<Bilin
         repoDetails.html_url,
         repoDetails.language,
         repoDetails.stargazers_count,
+        repoDetails.updated_at,
         repoDetails.description,
         readmeContent
       );

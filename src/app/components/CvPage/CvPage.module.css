@@ -23,7 +23,7 @@
   }
 
   /* Strip card backgrounds, shadows and border glows */
-  :global(.cv-wrapper) {
+  :global(.cv-wrapper), :global(.cv-wrapper > div) {
     background: none !important;
     border: none !important;
     padding: 0 !important;
@@ -31,6 +31,7 @@
     max-width: 100% !important;
     box-shadow: none !important;
     backdrop-filter: none !important;
+    border-radius: 0 !important;
   }
 
   /* Headers typography contrast */
@@ -140,6 +141,8 @@
 
   :global(.experience-item) {
     margin-bottom: 0 !important;
+    border-left: none !important;
+    padding-left: 0 !important;
   }
 
   /* CRITICAL: Prevent elements from breaking across pages in print */

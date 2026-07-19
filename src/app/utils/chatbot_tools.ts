@@ -3,14 +3,14 @@ import { getViews } from '@/app/utils/redis';
 import fs from 'fs';
 import path from 'path';
 
-// Load local experience and contact info from profile.json
+// Load local experience and contact info from Redis (with local fallback)
 export async function getProfileInfo() {
   try {
-    const profilePath = path.join(process.cwd(), 'src/data/profile.json');
-    const profileData = JSON.parse(fs.readFileSync(profilePath, 'utf8'));
+    const { getCvProfile } = await import('@/app/utils/redis');
+    const profileData = await getCvProfile();
     return profileData;
   } catch (error) {
-    console.error("Error reading profile.json inside tools:", error);
+    console.error("Error reading profile from Redis inside tools:", error);
     return { error: "Could not retrieve profile information at this time." };
   }
 }

@@ -33,6 +33,7 @@ export const Navigation: React.FC = () => {
 
     const isProjectsActive = currentPath === '/repositories' || currentPath.startsWith('/repositories/');
     const isContactActive = currentPath === '/contact';
+    const isCvActive = currentPath === '/cv';
 
     const handleGoBack = () => {
         const count = typeof window !== "undefined" ? parseInt(sessionStorage.getItem("nav_count") || "0", 10) : 0;
@@ -68,21 +69,23 @@ export const Navigation: React.FC = () => {
                         {/* Enlace Projects / Home */}
                         <Link
                             href={isProjectsActive ? '/' : '/repositories'}
-                            // ---- INICIO CAMBIO Estilo ----
-                            // Se aplica el estilo común directamente. Ya no cambia si está activo.
                             className={commonLinkStyle}
-                            // ---- FIN CAMBIO Estilo ----
                         >
                             {isProjectsActive ? 'Home' : 'Projects'}
+                        </Link>
+
+                        {/* Enlace CV / Home */}
+                        <Link
+                            href={isCvActive ? '/' : '/cv'}
+                            className={commonLinkStyle}
+                        >
+                            {isCvActive ? 'Home' : 'CV'}
                         </Link>
 
                         {/* Enlace Contact / Home */}
                         <Link
                             href={isContactActive ? '/' : '/contact'}
-                            // ---- INICIO CAMBIO Estilo ----
-                            // Se aplica el estilo común directamente. Ya no cambia si está activo.
                             className={commonLinkStyle}
-                            // ---- FIN CAMBIO Estilo ----
                         >
                             {isContactActive ? 'Home' : 'Contact'}
                         </Link>

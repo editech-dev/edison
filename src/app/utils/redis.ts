@@ -1,4 +1,6 @@
 import { createClient } from 'redis';
+import fs from 'fs';
+import path from 'path';
 
 // Singleton Redis Client
 const client = createClient({
@@ -123,6 +125,41 @@ export const listChats = async () => {
     return chats.sort((a, b) => {
         return (new Date(b.timestamp || 0).getTime()) - (new Date(a.timestamp || 0).getTime());
     });
+};
+
+// --- CV Profile Loader with Redis and Local Fallback ---
+export const getCvProfile = async (): Promise<any> => {
+    // 1. Try to get cached data from Redis
+    const cached = await getCachedData('cv:profile');
+    if (cached) {
+        return cached;
+    }
+    
+    // 2. Local fallback if Redis is empty or offline
+    try {
+        const filePath = path.join(process.cwd(), 'src/data/cv-profile.json');
+        if (!fs.existsSync(filePath)) {
+            throw new Error(`cv-profile.json does not exist at ${filePath}`);
+        }
+        const fileContent = fs.readFileSync(filePath, 'utf8');
+        const data = JSON.parse(fileContent);
+        
+        // 3. Populate Redis cache if online (30 days TTL)
+        await cacheData('cv:profile', data, 2592000);
+        return data;
+    } catch (err: any) {
+        console.error("[Redis/FS] Error retrieving CV profile:", err.message || err);
+        // Absolute fallback to the basic profile if the detailed one fails
+        try {
+            const oldPath = path.join(process.cwd(), 'src/data/profile.json');
+            if (fs.existsSync(oldPath)) {
+                return JSON.parse(fs.readFileSync(oldPath, 'utf8'));
+            }
+            return null;
+        } catch {
+            return null;
+        }
+    }
 };
 
 // --- Generic Caching Utils ---

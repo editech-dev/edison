@@ -1,0 +1,450 @@
+{
+  "personal": {
+    "name": "Edison Esteban Isaza López",
+    "title_es": "AI Prompt Engineering | Data Engineering & Analysis | Machine Learning | Full-Stack Development | Cloud & DevSecOps",
+    "title_en": "AI Prompt Engineering | Data Engineering & Analysis | Machine Learning | Full-Stack Development | Cloud & DevSecOps",
+    "contact": {
+      "email": "edisonisaza@gmail.com",
+      "phone": "+57 322 375 2131",
+      "linkedin": "https://www.linkedin.com/in/edison-isaza",
+      "github": "https://github.com/editech-dev",
+      "website": "https://editech.dev",
+      "location_es": "Medellín, Colombia",
+      "location_en": "Medellin, Colombia"
+    },
+    "summary_es": "Desarrollador Full-Stack con una sólida experiencia en el diseño, desarrollo e implementación de aplicaciones web (Python, Django, React, Angular) y móviles nativas/híbridas (Android Kotlin, Flutter, React Native). Ha evolucionado su perfil integrando capacidades avanzadas en Análisis de Datos (Power BI), Ingeniería de Datos (pipelines ETL automatizados) y despliegue de modelos de Machine Learning (IA conversacional, RAG, agentes y algoritmos de trading predictivos). Su experiencia abarca la automatización de procesos complejos (Python, VB), administración de sistemas e infraestructura cloud (AWS, Azure, Docker, Kubernetes) y ciberseguridad, garantizando soluciones robustas, escalables y seguras que optimizan el rendimiento operativo.",
+    "summary_en": "Full-Stack Developer with a proven track record in the design, development, and deployment of robust web applications (Python, Django, React, Angular) and mobile platforms (native Android Kotlin, Flutter, React Native). Specialized in integrating Data Engineering (ETL pipeline automation), Data Analysis (Power BI dashboard design), and Machine Learning implementations (conversational AI, RAG architectures, autonomous agents, and algorithmic trading models). Strong expertise in workflow automation (Python, VB), system administration, cloud infrastructure (AWS, Azure, Docker, Kubernetes), and cybersecurity practices, delivering high-performance, secure, and scalable strategic solutions."
+  },
+  "experience": [
+    {
+      "company": "Grupo Unión",
+      "role_es": "Desarrollador Full-Stack",
+      "role_en": "Full-Stack Developer",
+      "dates_es": "Noviembre 2021 – Presente",
+      "dates_en": "November 2021 – Present",
+      "location_es": "Medellín, Colombia",
+      "location_en": "Medellin, Colombia",
+      "details_es": [
+        "Diseñé y desarrollé aplicaciones móviles nativas (Android Kotlin) y multiplataforma (Flutter, React Native), portales web Full-Stack y consolas de administración complejas bajo metodologías ágiles, optimizando la digitalización de flujos operativos para clientes gubernamentales y de transporte.",
+        "Lideré el diseño técnico y la integración de sistemas de seguridad física de alta criticidad, vinculando IBM Intelligent Operations Center (IOC) con plataformas de gestión de video (VMS) líderes como Milestone y Securos para habilitar analíticas de video inteligentes en tiempo real.",
+        "Programé scripts de automatización en Python y Visual Basic utilizando librerías como 'qrcode', 'PyPDF2' y 'python-docx' para la extracción y procesamiento automatizado de documentos corporativos (PDF/Word), reduciendo en un 70% los tiempos de gestión manual.",
+        "Administré y aseguré el soporte de infraestructura de TI crítica, servidores de centros de datos, contenedores Docker y plataformas de red para la Autoridad de Tránsito de Medellín (CITRA y CIOS), garantizando una disponibilidad del 99.9% en los servicios de movilidad vial.",
+        "Diseñé y desplegué desde cero un software personalizado a medida (plataforma web y móvil) para la gestión de proyectos y tickets de soporte, agilizando el flujo de incidentes operativos y reduciendo significativamente el tiempo medio de resolución (MTTR)."
+      ],
+      "details_en": [
+        "Architect and develop native (Android Kotlin) and cross-platform (Flutter, React Native) mobile apps, full-stack web platforms, and complex administration consoles using agile methodologies, optimizing the digitalization of operational workflows for government and transit clients.",
+        "Lead the technical design and integration of high-criticality physical security systems, linking IBM Intelligent Operations Center (IOC) with leading Video Management Software (VMS) platforms like Milestone and Securos to enable real-time intelligent video analytics.",
+        "Program automation scripts in Python and VB using libraries like 'qrcode', 'PyPDF2', and 'python-docx' for automated data extraction and document processing (PDF/Word), reducing manual processing times by 70%.",
+        "Administer and maintain critical IT infrastructure, datacenter servers, Docker containers, and network platforms for the Medellín Transit Authority (CITRA and CIOS), ensuring 99.9% uptime for key transit monitoring systems.",
+        "Design and deploy custom project and support ticket management software (web & mobile platforms) from scratch, streamlining operational incident workflows and significantly reducing the mean time to resolution (MTTR)."
+      ]
+    },
+    {
+      "company": "Jonyco Latam",
+      "role_es": "Ingeniero de Datos / Machine Learning",
+      "role_en": "Data Engineer / Machine Learning Engineer",
+      "dates_es": "Febrero 2025 – Abril 2025",
+      "dates_en": "February 2025 – April 2025",
+      "location_es": "Bogotá, Colombia",
+      "location_en": "Bogota, Colombia",
+      "details_es": [
+        "Lideré el análisis integral de datos operativos del Aeropuerto Internacional El Dorado, transformando conjuntos de datos masivos y heterogéneos en insights de negocio estratégicos mediante dashboards avanzados e interactivos en Power BI.",
+        "Diseñé, programé e implementé pipelines de ETL automatizados y robustos para la ingesta y procesamiento de datos de múltiples fuentes críticas, garantizando la consistencia, disponibilidad e integridad del 100% de la información operativa.",
+        "Implementé y desplegué modelos predictivos utilizando algoritmos de Machine Learning para pronosticar tendencias operativas de vuelo y flujos de pasajeros, optimizando la planificación de recursos en tierra y la experiencia general del usuario.",
+        "Gestioné el ciclo de vida completo de los datos (desde la ingesta, limpieza y almacenamiento hasta su análisis y consumo final), estableciendo una infraestructura de datos unificada y confiable como única fuente de verdad para la toma de decisiones."
+      ],
+      "details_en": [
+        "Led the comprehensive analysis of El Dorado International Airport's operational metrics, converting massive, heterogeneous datasets into strategic business insights using advanced, interactive Power BI dashboards.",
+        "Designed, built, and automated robust ETL pipelines to ingest and process data from diverse critical streams, ensuring 100% data integrity, consistency, and availability for operational decisions.",
+        "Deployed predictive Machine Learning models to forecast passenger flows and flight patterns, enabling proactive resource planning and enhancing the overall passenger experience.",
+        "Managed the complete data lifecycle—from ingestion, cleaning, and storage to final reporting—establishing a unified, reliable data foundation that acts as a single source of truth for advanced analytics."
+      ]
+    },
+    {
+      "company": "Ochoas Service",
+      "role_es": "Desarrollador Full-Stack",
+      "role_en": "Full-Stack Developer",
+      "dates_es": "Julio 2024 – Abril 2025",
+      "dates_en": "July 2024 – April 2025",
+      "location_es": "Quebec, Canadá",
+      "location_en": "Quebec, Canada",
+      "details_es": [
+        "Diseñé y construí aplicaciones de administración corporativa interna utilizando Python (Django), JavaScript (React) y bases de datos SQL relacionales, modernizando los procesos del negocio y digitalizando operaciones para mejorar la eficiencia operativa.",
+        "Desarrollé e integré módulos contables automatizados para facturación, control detallado de gastos y generación de reportes financieros automáticos, reduciendo errores manuales y acelerando los cierres de mes.",
+        "Diseñé e implementé un dashboard de analítica y métricas en tiempo real que consolidó datos comerciales clave, proporcionando visibilidad inmediata a la alta gerencia para la toma de decisiones basadas en datos."
+      ],
+      "details_en": [
+        "Engineered and deployed internal business management web applications utilizing Python (Django), JavaScript (React), and SQL relational databases, modernizing operations and boosting overall workflow efficiency.",
+        "Built and integrated automated financial and accounting modules for invoicing, expense tracking, and financial reporting, reducing manual entry errors and accelerating monthly closings.",
+        "Designed and launched a real-time business intelligence dashboard that centralized key commercial metrics, providing senior management with immediate, data-driven decision-making insights."
+      ]
+    },
+    {
+      "company": "ConsorcioTec",
+      "role_es": "Desarrollador Full-Stack",
+      "role_en": "Full-Stack Developer",
+      "dates_es": "Septiembre 2021 – Octubre 2021",
+      "dates_en": "September 2021 – October 2021",
+      "location_es": "Miami, EE. UU.",
+      "location_en": "Miami, FL",
+      "details_es": [
+        "Diseñé y desarrollé soluciones personalizadas web y móviles para programas de fidelización de clientes afiliados y plataformas de redes de educadores preferidos, acelerando la entrega de proyectos y optimizando la retención de usuarios."
+      ],
+      "details_en": [
+        "Engineered and delivered custom web and mobile applications for customer affiliate programs and preferred educator networks, accelerating project delivery times and improving user engagement on partner portals."
+      ]
+    },
+    {
+      "company": "Alcaldía de Medellín",
+      "role_es": "Desarrollador Full-Stack",
+      "role_en": "Full-Stack Developer",
+      "dates_es": "Marzo 2021 – Septiembre 2021",
+      "dates_en": "March 2021 – September 2021",
+      "location_es": "Medellín, Colombia",
+      "location_en": "Medellin, Colombia",
+      "details_es": [
+        "Programé y desplegué aplicaciones web públicas para la Secretaría de Innovación Digital bajo metodologías ágiles (Scrum), asegurando la entrega continua de actualizaciones y optimizando la mantenibilidad del código base.",
+        "Colaboré en el diseño de arquitectura y desarrollo frontend/backend de iniciativas de alto impacto social, como la plataforma de innovación ciudadana MedeINN y portales dedicados a la inclusión social."
+      ],
+      "details_en": [
+        "Developed and deployed public web applications for the Secretariat of Digital Innovation using Scrum methodologies, ensuring on-time delivery of updates and code-quality enhancement.",
+        "Collaborated on the architectural design and full-stack development of high-impact social initiatives, including the MedeINN public innovation platform and citizen social inclusion portals."
+      ]
+    },
+    {
+      "company": "Vozy (Desarrollo de Chatbots)",
+      "role_es": "Desarrollador de Chatbots & Backend",
+      "role_en": "Conversational AI & Backend Engineer",
+      "dates_es": "Septiembre 2020 – Octubre 2020",
+      "dates_en": "September 2020 – October 2020",
+      "location_es": "Medellín, Colombia",
+      "location_en": "Medellin, Colombia",
+      "details_es": [
+        "Desarrollé una API web e integré modelos supervisados y no supervisados de Machine Learning para la clasificación de intenciones, agrupación de datos (clustering) y generación automática de respuestas, automatizando flujos conversacionales de atención al cliente.",
+        "Diseñé e implementé pipelines de despliegue continuo utilizando contenedores Docker en la infraestructura de la nube de AWS, reduciendo los tiempos de puesta en producción y garantizando la estabilidad operativa del chatbot."
+      ],
+      "details_en": [
+        "Developed a web API and integrated supervised and unsupervised Machine Learning models for intent classification and data clustering, automating conversational customer support channels.",
+        "Designed and executed automated CI/CD deployment pipelines utilizing Docker containers on AWS cloud infrastructure, streamlining production releases and ensuring system reliability."
+      ]
+    },
+    {
+      "company": "Consorcio RET-SNADING",
+      "role_es": "Consultor de Tecnología",
+      "role_en": "Technology Consultant",
+      "dates_es": "Noviembre 2019 – Diciembre 2019",
+      "dates_en": "November 2019 – December 2019",
+      "location_es": "Medellín, Colombia",
+      "location_en": "Medellin, Colombia",
+      "details_es": [
+        "Lideré el diseño técnico y la ingeniería detallada de la infraestructura de videovigilancia (CCTV) del Parque Prado Centro (Fase 1) para la Empresa de Desarrollo Urbano (EDU) de Medellín, incrementando los estándares de seguridad urbana.",
+        "Diseñé la topología de red en anillo de fibra óptica redundante y definí las especificaciones técnicas del equipamiento de red y seguridad crítica (cámaras multisensor, altavoces IP, gabinetes metálicos y respaldo UPS), garantizando la resiliencia del sistema ante fallos eléctricos."
+      ],
+      "details_en": [
+        "Directed the technical evaluation and detailed engineering design for the video surveillance (CCTV) infrastructure at Prado Centro Park (Phase 1) for the Medellin Urban Development Company (EDU), upgrading urban safety standards.",
+        "Architected a redundant fiber-optic ring network topology and specified critical security hardware (multisensor cameras, IP speakers, metal poles, equipment cabinets, and backup UPS systems), guaranteeing system resilience and 100% operational uptime."
+      ]
+    },
+    {
+      "company": "Grupo Unión (Infraestructura)",
+      "role_es": "Coordinador de Proyectos Tecnológicos",
+      "role_en": "Technology Project Lead",
+      "dates_es": "Noviembre 2013 – Enero 2020",
+      "dates_en": "November 2013 – January 2020",
+      "location_es": "Medellín, Colombia",
+      "location_en": "Medellin, Colombia",
+      "details_es": [
+        "Coordiné cuadrillas de personal técnico y administré recursos en campo para el despliegue de infraestructura de energía y telecomunicaciones, completando a tiempo más de 10 macroproyectos de seguridad pública en Colombia y Panamá.",
+        "Diseñé infraestructuras de red y configuré switches activos core (Cisco, HP, Planet, Vivotek) junto con enlaces de radio inalámbricos (Ubiquiti, Redline, Alvarion) para permitir la transmisión estable de datos de seguridad ciudadana.",
+        "Configuré y optimicé servidores especializados de gestión de video (VMS) en plataformas como Genetec, Securos, Avigilon, IndigoVision, Exacq y Hikvision, integrando cámaras con analíticas avanzadas de monitoreo.",
+        "Lideré el diseño, instalación e integración de sistemas complejos de control de acceso corporativo de alta gama (C•CURE 9000, BioStar), resguardando instalaciones críticas del Ejército Nacional de Colombia y subestaciones eléctricas de ENSA en Panamá."
+      ],
+      "details_en": [
+        "Coordinated technical field crews and managed resources for large-scale energy, telecommunications, and video surveillance infrastructure deployment, executing over 10 public safety macro-projects in Colombia and Panama on schedule.",
+        "Designed network infrastructures and configured core switches (Cisco, HP, Planet, Vivotek) alongside wireless radio links (Ubiquiti, Redline, Alvarion), enabling stable public safety video and data transmission.",
+        "Configured and optimized specialized Video Management Systems (VMS Genetec, Securos, Avigilon, IndigoVision, Exacq, Hikvision), integrating advanced video analytics cameras for urban monitoring.",
+        "Directed the design, installation, and integration of enterprise-grade access control systems (C•CURE 9000, BioStar), securing critical facilities for the Colombian National Army and ENSA electrical substations in Panama."
+      ]
+    }
+  ],
+  "education": [
+    {
+      "institution": "Holberton School",
+      "degree_es": "Desarrollador de Software Full-Stack",
+      "degree_en": "Full-Stack Software Engineering Program",
+      "year": "2020 – 2021",
+      "description_es": "Formación intensiva basada en proyectos, cubriendo algoritmos (C), estructuras de datos, desarrollo backend (Python, Flask, SQL, APIs REST) y frontend (JavaScript, React). Proyectos clave: Clon de AirBnB, Shell simple, Árboles de búsqueda binaria.",
+      "description_en": "Project-based software engineering program covering systems programming (C), data structures, web backend (Python, MySQL, Flask, REST APIs), and frontend (JavaScript, React). Key projects: AirBnB clone, custom command line Shell, binary tree search algorithms."
+    },
+    {
+      "institution": "Colegio Militar José María Córdoba",
+      "degree_es": "Bachiller Académico con orientación militar",
+      "degree_en": "High School Diploma (Military Academy)",
+      "year": "2010"
+    }
+  ],
+  "skills": {
+    "categories_es": [
+      {
+        "name": "Ciencia de Datos e Inteligencia Artificial",
+        "items": [
+          "Modelado Predictivo",
+          "Machine Learning (TensorFlow, Scikit-learn)",
+          "IA Conversacional (RASA, Gemini, Llama, Gemma, RAG)",
+          "Agentes Inteligentes Autónomos",
+          "Modelos de Inversión Financiera y Trading Algorítmico"
+        ]
+      },
+      {
+        "name": "Ingeniería y Análisis de Datos",
+        "items": [
+          "Pipelines ETL",
+          "Automatización de Procesos (Python, VB, Bash, n8n)",
+          "Power BI",
+          "SQL (PostgreSQL, MySQL, SQL Server, DB2, AWS Redshift)",
+          "NoSQL, Supabase & Caching (MongoDB, Redis, Firebase)"
+        ]
+      },
+      {
+        "name": "Desarrollo de Software y Móvil",
+        "items": [
+          "Backend: Python (Django, Flask), Node.js (Next.js, Express), Java (Spring Boot), .NET",
+          "Frontend: HTML5, CSS3, JavaScript/TypeScript, React, Angular",
+          "Desarrollo Móvil: Kotlin (Android Nativo), Dart (Flutter), React Native"
+        ]
+      },
+      {
+        "name": "DevOps, Nube e Infraestructura",
+        "items": [
+          "Plataformas: AWS, Google Cloud, Microsoft Azure",
+          "Contenedores y CI/CD: Docker, Kubernetes, Jenkins, Azure DevOps",
+          "Sistemas Operativos: Linux (Administración y Scripting), Windows Server"
+        ]
+      },
+      {
+        "name": "Redes, Seguridad e Infraestructura Física",
+        "items": [
+          "Redes: Cisco, HP, Routing & Switching, Redes inalámbricas (Ubiquiti, Redline, Alvarion)",
+          "Ciberseguridad: Kali Linux, Wireshark, Nmap, Metasploit, Nessus, Pentesting, OpenVAS",
+          "Sistemas de Seguridad: Milestone, Genetec, Securos (Nivel 3), Avigilon, Access Control (C•CURE 9000, BioStar)"
+        ]
+      }
+    ],
+    "categories_en": [
+      {
+        "name": "Data Science & Artificial Intelligence",
+        "items": [
+          "Predictive Modeling",
+          "Machine Learning (TensorFlow, Scikit-learn)",
+          "Conversational AI (RASA, Gemini, Llama, Gemma, RAG)",
+          "Autonomous AI Agents",
+          "Algorithmic Trading & Quantitative Investment Models"
+        ]
+      },
+      {
+        "name": "Data Engineering & Analytics",
+        "items": [
+          "ETL Pipelines",
+          "Workflow Automation (Python, VB, Bash, n8n)",
+          "Power BI",
+          "SQL (PostgreSQL, MySQL, SQL Server, DB2, AWS Redshift)",
+          "NoSQL, Supabase & Caching (MongoDB, Redis, Firebase)"
+        ]
+      },
+      {
+        "name": "Software & Mobile Development",
+        "items": [
+          "Backend: Python (Django, Flask), Node.js (Next.js, Express), Java (Spring Boot), .NET",
+          "Frontend: HTML5, CSS3, JavaScript/TypeScript, React, Angular",
+          "Mobile: Kotlin (Native Android), Dart (Flutter), React Native"
+        ]
+      },
+      {
+        "name": "DevOps, Cloud & Infrastructure",
+        "items": [
+          "Cloud Providers: AWS, Google Cloud, Microsoft Azure",
+          "Containers & CI/CD: Docker, Kubernetes, Jenkins, Azure DevOps",
+          "OS: Linux Administration & Shell Scripting, Windows Server"
+        ]
+      },
+      {
+        "name": "Networking, Security & Physical Systems",
+        "items": [
+          "Networking: Cisco, HP, Routing & Switching, Wireless Links (Ubiquiti, Redline, Alvarion)",
+          "Cybersecurity: Kali Linux, Wireshark, Nmap, Metasploit, Nessus, Penetration Testing",
+          "Security Infrastructure: Milestone, Genetec, Securos (Level 3), Avigilon, Access Control (C•CURE 9000, BioStar)"
+        ]
+      }
+    ]
+  },
+  "certifications_es": [
+    "Certificación SecurOS® Nivel 3 (ISS - Intelligent Security Systems, 2026)",
+    "Curso de Supabase Avanzado (Platzi, 2026)",
+    "Curso de Supabase (Platzi, 2026)",
+    "Curso de Azure IaaS (Platzi, 2025)",
+    "Curso de AWS Redshift para Manejo de Big Data (Platzi, 2025)",
+    "Curso Práctico de Bases de Datos en AWS (Platzi, 2025)",
+    "Curso Práctico de Storage en AWS (Platzi, 2025)",
+    "Curso Práctico de AWS: Cómputo con EC2 (Platzi, 2025)",
+    "Curso Práctico de AWS: Roles y Seguridad con IAM (Platzi, 2025)",
+    "Curso de Introducción a AWS: Redes, Gobernanza y Machine Learning (Platzi, 2025)",
+    "Curso de Introducción a AWS: Cómputo, Almacenamiento y Bases de Datos (Platzi, 2025)",
+    "Curso de Python: Comprehensions, Funciones y Manejo de Errores (Platzi, 2025)",
+    "Curso de Introducción a AWS: Fundamentos del Cloud Computing (Platzi, 2025)",
+    "Curso de RAG para Inteligencia Artificial (Platzi, 2025)",
+    "Curso de Creación de Empresas y Startups (Platzi, 2025)",
+    "Curso de MCP (Platzi, 2025)",
+    "Curso de Flutter (Platzi, 2025)",
+    "Curso de n8n: Automatización de Flujos de Trabajo (Platzi, 2025)",
+    "Curso de Azure DevOps: Flujos de CI/CD (Platzi, 2025)",
+    "Curso de Power BI (Platzi, 2025)",
+    "Certificación SecurOS® Nivel 1 y 2 (ISS - Intelligent Security Systems, 2024)",
+    "Curso de Desarrollo de Apps con React Native (Platzi, 2024)",
+    "Curso Profesional de Git y GitHub (Platzi, 2024)",
+    "Curso de Fundamentos de Ingeniería de Software (Platzi, 2024)",
+    "Curso de Introducción a la Terminal y Línea de Comandos (Platzi, 2024)",
+    "Curso de Fundamentos de Matemáticas (Platzi, 2024)",
+    "Curso de Análisis de Negocios para Ciencias de Datos (Platzi, 2024)",
+    "Curso de Guía para Empezar una Carrera en Data Science e IA (Platzi, 2024)",
+    "Curso de Salidas Profesionales para Desarrolladores de Aplicaciones Móviles (Platzi, 2023)",
+    "React Native: Manejo de Listas y Consumo de APIs (Platzi, 2023)",
+    "React Native: Formularios, Almacenamiento y Deploy (Platzi, 2023)",
+    "Introducción a React Native (Platzi, 2022)",
+    "Kotlin desde Cero (Platzi, 2022)",
+    "Kotlin con Firebase Firestore (Platzi, 2022)",
+    "Audiocurso de Fundamentos de Web3 (Platzi, 2022)",
+    "Bases Técnicas de Android (Platzi, 2022)",
+    "Arquitectura de Android (Platzi, 2022)",
+    "Diseño de Interfaces con Android Studio (Platzi, 2022)",
+    "Java SE Orientado a Objetos (Platzi, 2021)",
+    "Introducción a Java SE (Platzi, 2021)",
+    "Introducción a AWS: Cómputo, Almacenamiento y Bases de Datos (LinkedIn / AWS, 2021)",
+    "Rasa Chatbot Development con Python (Platzi, 2020)",
+    "Getting Started with Google Kubernetes Engine (Google Cloud / Coursera, 2020)",
+    "Google Cloud Product Fundamentals (Google Cloud / Coursera, 2020)",
+    "Python para Data Science (IBM / Coursera, 2020)",
+    "Certificación Profesional CCURE9000 (Software House, 2018)",
+    "Certificación ExacqVMS (Exacq, 2017)",
+    "Asociado de Seguridad Certificado Hikvision - HCSA (Hikvision, 2019)",
+    "IndigoVision Technical Training (IndigoVision, 2018)",
+    "Intelligent Security Systems - ISS Certification (ISS, 2016)",
+    "¿Cómo invertir en acciones? (Bolsa de Valores de Colombia - BVC, 2017)"
+  ],
+  "certifications_en": [
+    "SecurOS® Level 3 Certified Professional (ISS - Intelligent Security Systems, 2026)",
+    "Advanced Supabase Course (Platzi, 2026)",
+    "Supabase Course (Platzi, 2026)",
+    "Azure IaaS Course (Platzi, 2025)",
+    "AWS Redshift for Big Data Management Course (Platzi, 2025)",
+    "AWS Databases Practical Course (Platzi, 2025)",
+    "AWS Storage Practical Course (Platzi, 2025)",
+    "AWS Compute with EC2 Practical Course (Platzi, 2025)",
+    "AWS Roles and Security with IAM Practical Course (Platzi, 2025)",
+    "Introduction to AWS: Networking, Governance & Machine Learning Course (Platzi, 2025)",
+    "Introduction to AWS: Compute, Storage & Databases Course (Platzi, 2025)",
+    "Python: Comprehensions, Functions & Error Handling Course (Platzi, 2025)",
+    "Introduction to AWS: Cloud Computing Foundations Course (Platzi, 2025)",
+    "RAG for Artificial Intelligence Course (Platzi, 2025)",
+    "Business Creation and Startups Course (Platzi, 2025)",
+    "MCP Course (Platzi, 2025)",
+    "Flutter Course (Platzi, 2025)",
+    "n8n: Workflow Automation Course (Platzi, 2025)",
+    "Azure DevOps: CI/CD Pipelines (Platzi, 2025)",
+    "Power BI Course (Platzi, 2025)",
+    "SecurOS® Level 1 & 2 Certified Professional (ISS - Intelligent Security Systems, 2024)",
+    "React Native App Development Course (Platzi, 2024)",
+    "Professional Git and GitHub Course (Platzi, 2024)",
+    "Software Engineering Foundations (Platzi, 2024)",
+    "Introduction to the Terminal and Command Line (Platzi, 2024)",
+    "Mathematics Foundations (Platzi, 2024)",
+    "Business Analysis for Data Science (Platzi, 2024)",
+    "Data Science & AI Career Starter Guide (Platzi, 2024)",
+    "Career Paths for Mobile Developers (Platzi, 2023)",
+    "React Native: List Management and Consuming APIs (Platzi, 2023)",
+    "React Native: Forms, Storage, and Deployment (Platzi, 2023)",
+    "Introduction to React Native (Platzi, 2022)",
+    "Kotlin from Scratch (Platzi, 2022)",
+    "Kotlin with Firebase Firestore (Platzi, 2022)",
+    "Web3 Foundations Audiocourse (Platzi, 2022)",
+    "Android Development Foundations (Platzi, 2022)",
+    "Android Architecture (Platzi, 2022)",
+    "Introduction to UI Design with Android Studio (Platzi, 2022)",
+    "Java SE Object-Oriented Programming (Platzi, 2021)",
+    "Introduction to Java SE (Platzi, 2021)",
+    "Introduction to AWS: Compute, Storage, and Databases (LinkedIn / AWS, 2021)",
+    "Rasa Chatbot Development with Python (Platzi, 2020)",
+    "Getting Started with Google Kubernetes Engine (Google Cloud / Coursera, 2020)",
+    "Google Cloud Product Fundamentals (Google Cloud / Coursera, 2020)",
+    "Python for Data Science (IBM / Coursera, 2020)",
+    "C•CURE 9000 Certified Professional (Software House, 2018)",
+    "ExacqVMS Technical Certification (Exacq, 2017)",
+    "Hikvision Certified Security Associate - HCSA (Hikvision, 2019)",
+    "IndigoVision Technical Training (IndigoVision, 2018)",
+    "Intelligent Security Systems - ISS Certification (ISS, 2016)",
+    "How to Invest in Stocks (Colombia Stock Exchange - BVC, 2017)"
+  ],
+  "presentations_es": [
+    {
+      "title": "Nuevas Tendencias de Inversiones con Criptomonedas: Una Perspectiva Equilibrada para Evitar el Fracaso",
+      "institution": "Tecnológico de Antioquia (Cátedra Abierta)",
+      "date": "Abril 2025",
+      "location": "Medellín, Colombia"
+    },
+    {
+      "title": "¿Qué son las criptomonedas y cómo invertir en ellas?",
+      "institution": "Tecnológico de Antioquia (Cátedra Abierta)",
+      "date": "Octubre 2019",
+      "location": "Medellín, Colombia"
+    }
+  ],
+  "presentations_en": [
+    {
+      "title": "New Investment Trends with Cryptocurrencies: A Balanced Perspective to Avoid Failure",
+      "institution": "Tecnológico de Antioquia (Open Lecture)",
+      "date": "April 2025",
+      "location": "Medellin, Colombia"
+    },
+    {
+      "title": "What are Cryptocurrencies and How to Invest in Them?",
+      "institution": "Tecnológico de Antioquia (Open Lecture)",
+      "date": "October 2019",
+      "location": "Medellin, Colombia"
+    }
+  ],
+  "soft_skills_es": [
+    "Autoaprendizaje continuo",
+    "Trabajo en equipo colaborativo",
+    "Comunicación asertiva",
+    "Resolución de problemas complejos",
+    "Gestión del tiempo y priorización",
+    "Automatización de procesos y flujos de trabajo"
+  ],
+  "soft_skills_en": [
+    "Continuous Self-Learning",
+    "Collaborative Teamwork",
+    "Assertive Communication",
+    "Complex Problem Solving",
+    "Time Management & Prioritization",
+    "Workflow & Process Automation"
+  ],
+  "languages_es": [
+    {
+      "language": "Español",
+      "level": "Nativo"
+    },
+    {
+      "language": "Inglés",
+      "level": "B1"
+    }
+  ],
+  "languages_en": [
+    {
+      "language": "Spanish",
+      "level": "Native"
+    },
+    {
+      "language": "English",
+      "level": "A2"
+    }
+  ]
+}

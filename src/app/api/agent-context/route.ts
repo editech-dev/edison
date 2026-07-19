@@ -23,9 +23,9 @@ export async function GET() {
         };
     }));
 
-    // 2. Leer el perfil local
-    const profilePath = path.join(process.cwd(), 'src/data/profile.json');
-    const profileData = JSON.parse(fs.readFileSync(profilePath, 'utf8'));
+    // 2. Leer el perfil local (con soporte de Redis y fallback)
+    const { getCvProfile } = await import('@/app/utils/redis');
+    const profileData = await getCvProfile();
 
     // 3. Leer el prompt XML
     const xmlPath = path.join(process.cwd(), 'src/app/utils/expert_persona.xml');

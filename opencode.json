@@ -1,0 +1,48 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "agent": {
+    "ui-ux-designer": {
+      "description": "Subagent specializing in UI/UX design, advanced layout with Tailwind CSS, and micro-animations.",
+      "prompt": "{file:./.agents/agents/ui-ux-designer/AGENT.md}",
+      "tools": {
+        "bash": true,
+        "write": true,
+        "read": true
+      }
+    },
+    "a11y-auditor": {
+      "description": "Subagent specializing in Web Accessibility (a11y). Audits and refactors components for WCAG 2.2 compliance.",
+      "prompt": "{file:./.agents/agents/a11y-auditor/AGENT.md}",
+      "tools": {
+        "bash": true,
+        "write": true,
+        "read": true
+      }
+    },
+    "security-auditor": {
+      "description": "Subagent specializing in Security and Dependency Auditing. Operates strictly in ReadOnly mode.",
+      "prompt": "{file:./.agents/agents/security-auditor/AGENT.md}",
+      "tools": {
+        "bash": true,
+        "read": true
+      }
+    },
+    "test-engineer": {
+      "description": "Subagent specializing in Quality Assurance and Unit/Integration Testing with Vitest and Testing Library.",
+      "prompt": "{file:./.agents/agents/test-engineer/AGENT.md}",
+      "tools": {
+        "bash": true,
+        "write": true,
+        "read": true
+      }
+    },
+    "git-manager": {
+      "description": "Subagent specializing in Version Control. Analyzes git diff, stages files, and generates Conventional Commits.",
+      "model": "opencode/deepseek-v4-flash-free",
+      "prompt": "{file:./.agents/agents/git-manager/AGENT.md}",
+      "tools": {
+        "bash": true
+      }
+    }
+  }
+}

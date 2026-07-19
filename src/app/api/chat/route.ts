@@ -31,7 +31,7 @@ export async function POST(req: Request) {
 
       while (loopCount < maxLoops) {
         const result = await ai.models.generateContent({
-          model: 'gemini-3.5-flash',
+          model: 'gemini-flash-latest',
           contents: contents,
           config: {
             temperature: 0.15,
@@ -120,7 +120,7 @@ export async function POST(req: Request) {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          model: "google/gemini-3.5-flash", 
+          model: "google/gemini-flash-latest", 
           messages: openRouterMessages,
           temperature: 0.15,
           top_p: 0.95

@@ -339,7 +339,7 @@ export default function ChatBotComponent() {
               ref={chatContainerRef}
               role="log"
               aria-live="polite"
-              className="flex-grow p-4 overflow-y-auto space-y-4 scrollbar-thin scrollbar-thumb-zinc-800/80 hover:scrollbar-thumb-green-500/30 scrollbar-track-transparent"
+              className="flex-grow p-4 overflow-y-auto space-y-4 no-scrollbar"
             >
               {messages.length === 0 && (
                 <div className="text-zinc-500 text-xs italic text-center mt-8">
@@ -399,7 +399,7 @@ export default function ChatBotComponent() {
                   aria-label="Type your message"
                   rows={1}
                   disabled={isLoading}
-                  className="flex-grow bg-transparent text-sm text-zinc-100 outline-none resize-none max-h-32 min-h-[20px] placeholder-zinc-650 scrollbar-none py-0.5 focus:outline-none"
+                  className="flex-grow bg-transparent text-sm text-zinc-100 outline-none resize-none max-h-32 min-h-[20px] placeholder-zinc-650 no-scrollbar py-0.5 focus:outline-none"
                 />
                 <button
                   onClick={handleSendMessage}

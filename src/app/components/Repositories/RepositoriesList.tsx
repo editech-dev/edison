@@ -32,7 +32,7 @@ export default async function RepositoriesList() {
         key={repo.id}
         className={`bg-zinc-900 p-4 rounded-lg flex flex-col justify-between transition-all duration-300 ease-in-out hover:bg-zinc-800 border ${
           isStarred 
-            ? 'border-yellow-500/10 hover:border-yellow-500/30 shadow-[0_0_15px_rgba(234,179,8,0.02)] hover:shadow-[0_0_20px_rgba(234,179,8,0.08)]' 
+            ? 'border-green-500/20 hover:border-green-400/40 shadow-[0_0_15px_rgba(34,197,94,0.03)] hover:shadow-[0_0_20px_rgba(34,197,94,0.12)]' 
             : 'border-transparent hover:border-green-500/30'
         }`}
       >
@@ -102,7 +102,7 @@ export default async function RepositoriesList() {
             {/* Starred Repositories Section */}
             {starredRepos.length > 0 && (
               <div className="space-y-6">
-                <h2 className="text-lg font-bold tracking-wider text-yellow-500 uppercase flex items-center gap-2">
+                <h2 className="text-lg font-bold tracking-wider text-green-400 uppercase flex items-center gap-2">
                   <FaStar className="h-5 w-5 text-yellow-500 animate-pulse" />
                   Featured Projects
                 </h2>

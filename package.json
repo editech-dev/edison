@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@google/genai": "^2.12.0",
+    "@react-pdf/renderer": "^4.5.1",
     "@vercel/speed-insights": "^1.2.0",
     "clsx": "^2.1.1",
     "framer-motion": "^12.7.4",

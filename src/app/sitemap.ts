@@ -1,14 +1,6 @@
 import { MetadataRoute } from 'next';
 import { getPublicRepositories } from '@/app/utils/github';
 
-const hreflangAlternates = (url: string): MetadataRoute.Sitemap[number]['alternates'] => ({
-  languages: {
-    es: url,
-    en: url,
-    'x-default': url,
-  },
-});
-
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://editech.dev';
 
@@ -24,7 +16,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: new Date(),
       changeFrequency: 'monthly',
       priority: 0.9,
-      alternates: hreflangAlternates(`${baseUrl}/cv`),
     },
     {
       url: `${baseUrl}/contact`,
@@ -37,7 +28,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: new Date(),
       changeFrequency: 'weekly',
       priority: 0.8,
-      alternates: hreflangAlternates(`${baseUrl}/repositories`),
     },
   ];
 
@@ -51,7 +41,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         lastModified: repoDate && !isNaN(repoDate.getTime()) ? repoDate : new Date(),
         changeFrequency: 'weekly',
         priority: 0.6,
-        alternates: hreflangAlternates(`${baseUrl}/repositories/${repo.name}`),
       };
     });
 

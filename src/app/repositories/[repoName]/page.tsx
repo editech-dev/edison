@@ -34,6 +34,9 @@ export async function generateMetadata({ params: paramsPromise }: RepositoryPage
 
     return {
       title: `Repository: ${repoName}`,
+      alternates: {
+        canonical: `/repositories/${repoName}`,
+      },
     };
   } catch (error) {
     console.error("Error resolving params or generating metadata:", error);

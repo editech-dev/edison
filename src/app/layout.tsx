@@ -46,9 +46,6 @@ export const metadata: Metadata = {
     description: "Portfolio of Edison, a Full Stack Developer and Ethical Hacker.",
     images: ["/og-image.png"],
   },
-  alternates: {
-    canonical: "/",
-  },
   robots: {
     index: true,
     follow: true,

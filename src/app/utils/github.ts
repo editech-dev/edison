@@ -26,7 +26,9 @@ const FRESH_FOR_MS = 60 * 60 * 1000; // same freshness as before: 1 hour
 const INCOMPLETE_RETRY_MS = 5 * 60 * 1000; // retry pending translations every 5 minutes
 const REFRESH_LOCK_KEY = 'github:repos:refresh-lock';
 const REFRESH_LOCK_TTL_SECONDS = 120;
-const REFRESH_BUDGET_MS = 40_000; // stop translating and save progress before the function limit
+// Stop translating and save progress well before the 60 s maxDuration of the routes that refresh
+// (one translation can take ~20 s with Gemini's rate-limit backoff).
+const REFRESH_BUDGET_MS = 25_000;
 const GITHUB_REFRESH_TIMEOUT_MS = 8_000;
 const GITHUB_REQUEST_TIMEOUT_MS = 2_500; // request path: never make a visitor wait on GitHub
 const MIN_README_LENGTH = 100;
@@ -43,6 +45,8 @@ export interface GitHubRepository {
   language: string | null;
   stargazers_count: number;
   updated_at: string;
+  private?: boolean;
+  visibility?: string;
 }
 
 export interface BilingualContent {
@@ -331,7 +335,9 @@ export async function refreshPublicRepositories(): Promise<RepositoriesSnapshot 
 }
 
 // --- READ (request path) ---
-export const getPublicRepositories = cache(async (): Promise<BilingualRepository[]> => {
+// `scheduleRefreshIfStale` is only passed by routes that declare `maxDuration = 60` (/repositories and
+// /api/agent-context), so the background refresh never runs inside a short default function limit.
+export const getPublicRepositories = cache(async (scheduleRefreshIfStale = false): Promise<BilingualRepository[]> => {
   if (!REPO_OWNER) {
     console.error('Missing GITHUB_REPO_OWNER environment variable');
     return [];
@@ -339,13 +345,18 @@ export const getPublicRepositories = cache(async (): Promise<BilingualRepository
 
   const snapshot = await readSnapshot();
   if (snapshot) {
-    if (needsRefresh(snapshot)) scheduleRefresh();
+    if (scheduleRefreshIfStale && needsRefresh(snapshot)) scheduleRefresh();
     return snapshot.repos;
   }
 
-  scheduleRefresh();
+  if (scheduleRefreshIfStale) scheduleRefresh();
   return getFallbackRepositories();
 });
+
+const findByName = <T extends { name: string }>(items: T[], repoName: string): T | undefined => {
+  const lower = repoName.toLowerCase();
+  return items.find((item) => item.name === repoName) ?? items.find((item) => item.name.toLowerCase() === lower);
+};
 
 export const getRepositoryByName = cache(async (repoName: string): Promise<BilingualRepository | null> => {
   if (!REPO_OWNER) {
@@ -355,13 +366,16 @@ export const getRepositoryByName = cache(async (repoName: string): Promise<Bilin
   // An impossible name cannot exist on GitHub: answer 404 without calling it.
   if (!VALID_REPO_NAME.test(repoName)) return null;
 
+  // The snapshot is the published list: what is not in it does not exist for visitors (deleted,
+  // private or filtered repositories), and unknown names never reach GitHub.
+  const snapshot = await readSnapshot();
+  if (snapshot) return findByName(snapshot.repos, repoName) ?? null;
+
+  // No snapshot yet (first deploy, Redis empty or unavailable).
   const cachedRepo: BilingualRepository | null = await getCachedData(`github:repo:bilingual:${repoName}`);
   if (cachedRepo) return cachedRepo;
 
-  const fromSnapshot = (await readSnapshot())?.repos.find((repo) => repo.name === repoName);
-  if (fromSnapshot) return fromSnapshot;
-
-  const fallbackEntry = loadFallbackMap()[repoName];
+  const fallbackEntry = findByName(Object.values(loadFallbackMap()), repoName);
   if (fallbackEntry) return fromFallback(fallbackEntry);
 
   // Unknown everywhere: ask GitHub directly, briefly. 404 means it does not exist; any other
@@ -373,8 +387,8 @@ export const getRepositoryByName = cache(async (repoName: string): Promise<Bilin
     throw new Error(`Failed to fetch repository details for ${repoName}: ${response.status} ${response.statusText}`);
   }
   const repoDetails = (await response.json()) as GitHubRepository;
-  // Not scheduling a refresh here: repositories missing from the snapshot are usually the ones
-  // filtered out (short README), and visitors must not be able to trigger refreshes at will.
+  // The token can read private repositories: never publish one.
+  if (repoDetails.private || (repoDetails.visibility && repoDetails.visibility !== 'public')) return null;
   const readme = await getReadmeContent(repoDetails.name);
   return untranslated(repoDetails, readme);
 });

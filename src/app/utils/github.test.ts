@@ -108,7 +108,7 @@ describe('github repositories: read path never waits on GitHub or Gemini', () =>
     const { getPublicRepositories } = await load();
     const translationModule = await import('./translation');
 
-    const repos = await getPublicRepositories();
+    const repos = await getPublicRepositories(true);
 
     expect(repos.length).toBeGreaterThan(0);
     expect(repos.every((r) => r.es && r.en)).toBe(true);
@@ -129,9 +129,44 @@ describe('github repositories: read path never waits on GitHub or Gemini', () =>
     store.set(SNAPSHOT_KEY, { generatedAt: Date.now() - 2 * 60 * 60 * 1000, complete: true, repos: [bilingual('alpha')] });
     const { getPublicRepositories } = await load();
 
-    expect((await getPublicRepositories()).map((r) => r.name)).toEqual(['alpha']);
+    expect((await getPublicRepositories(true)).map((r) => r.name)).toEqual(['alpha']);
     expect(fakeFetch).not.toHaveBeenCalled();
     expect(scheduled).toHaveLength(1);
+  });
+
+  it('never schedules a refresh from callers without the long function limit (sitemap, chat tools)', async () => {
+    store.set(SNAPSHOT_KEY, { generatedAt: 0, complete: true, repos: [bilingual('alpha')] });
+    const { getPublicRepositories } = await load();
+
+    await getPublicRepositories();
+    expect(scheduled).toHaveLength(0);
+  });
+
+  it('treats the snapshot as the published list: unknown names are 404 without calling GitHub', async () => {
+    store.set(SNAPSHOT_KEY, { generatedAt: Date.now(), complete: true, repos: [bilingual('alpha')] });
+    // A stale per-repo translation of a repository that was removed must not be served.
+    store.set('github:repo:bilingual:gone', bilingual('gone'));
+    const { getRepositoryByName } = await load();
+
+    expect(await getRepositoryByName('gone')).toBeNull();
+    expect(await getRepositoryByName('some-random-name')).toBeNull();
+    expect(fakeFetch).not.toHaveBeenCalled();
+  });
+
+  it('matches repository names case-insensitively', async () => {
+    store.set(SNAPSHOT_KEY, { generatedAt: Date.now(), complete: true, repos: [bilingual('Edison-Dev')] });
+    const { getRepositoryByName } = await load();
+
+    expect((await getRepositoryByName('edison-dev'))?.name).toBe('Edison-Dev');
+  });
+
+  it('never publishes a private repository, even if the token can read it', async () => {
+    fakeFetch.mockImplementationOnce(() => Promise.resolve(Response.json(repo('secret', { private: true, visibility: 'private' }))));
+    const { getRepositoryByName } = await load();
+
+    expect(await getRepositoryByName('secret')).toBeNull();
+    // Its README is never requested.
+    expect(fakeFetch).toHaveBeenCalledTimes(1);
   });
 
   it('answers in under 3 s for an unknown repository when GitHub hangs (error, not 404)', async () => {

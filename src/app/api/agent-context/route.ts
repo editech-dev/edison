@@ -11,7 +11,7 @@ export const maxDuration = 60;
 export async function GET() {
   try {
     // 1. Repositorios desde la caché (nunca espera a GitHub ni a Gemini)
-    const rawGithubData = await getPublicRepositories();
+    const rawGithubData = await getPublicRepositories(true);
 
     // Extracto del README original para enriquecer el contexto, sin llamadas extra a GitHub
     const githubData = rawGithubData.map((repo) => {

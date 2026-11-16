@@ -192,7 +192,14 @@ bun run tsc --noEmit  # Type check
     ```
     Dependency lifecycle scripts are blocked (`trustedDependencies` is empty) and versions published less than 48 hours ago are rejected (`bunfig.toml`).
 
-3.  **Configure Environment**:
+3.  **Start the local Redis** (Docker) and fill it with synthetic data. Outside production the app always uses this local Redis (`redis://127.0.0.1:6399`) and never the `REDIS_URL` of `.env.local`; only Vercel production (`VERCEL_ENV=production`) reads `REDIS_URL`:
+    ```bash
+    bun run redis:up     # docker compose: Redis 7 on 127.0.0.1:6399 with a persistent volume
+    bun run redis:seed   # synthetic view counters and fake chats (refuses non-local hosts)
+    ```
+    If Docker is not running, the app falls back to an in-memory store.
+
+4.  **Configure Environment**:
     Create a `.env.local` file with:
     ```env
     # Required
@@ -201,17 +208,19 @@ bun run tsc --noEmit  # Type check
     GITHUB_REPO_OWNER=editech-dev
 
     # Optional
-    REDIS_URL=redis://localhost:6379           # Falls back to in-memory store if missing
+    GEMINI_API_KEY_DEV=your_dev_gemini_key     # Optional: used instead of GEMINI_API_KEY outside production
+    REDIS_URL=your_production_redis_url        # Only read in Vercel production
+    REDIS_DEV_URL=redis://127.0.0.1:6399       # Optional: another local Redis, or `memory` to disable it
     ADMIN_API_TOKEN=your_admin_token           # Protects /api/chats endpoints
     NEXT_PUBLIC_BASE_URL=https://editech.dev   # Used for sitemap, robots.txt, OG metadata
     ```
 
-4.  **Run Development Server**:
+5.  **Run Development Server**:
     ```bash
     bun run dev
     ```
 
-5.  **Access the App**:
+6.  **Access the App**:
     Open [http://localhost:3002](http://localhost:3002). The CyberStack chat widget will be available globally.
 
 ## 📊 API Documentation

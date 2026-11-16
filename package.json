@@ -13,7 +13,8 @@
     "test:coverage": "vitest run --coverage",
     "redis:up": "docker compose up -d redis",
     "redis:down": "docker compose down",
-    "redis:seed": "bun scripts/redis-seed.ts"
+    "redis:seed": "bun scripts/redis-seed.ts",
+    "translations:export": "bun scripts/translations-export.ts"
   },
   "dependencies": {
     "@google/genai": "3.3.0",

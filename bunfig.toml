@@ -1,0 +1,6 @@
+# Bun configuration
+[install]
+# Supply-chain quarantine: never install a version published less than 48 hours ago.
+minimumReleaseAge = 172800
+# Pin exact versions when adding packages.
+exact = true

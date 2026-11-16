@@ -1,0 +1,15 @@
+# Local development Redis. Never used in production: the app only reads REDIS_URL when VERCEL_ENV=production.
+# Start it with `bun run redis:up` and fill it with synthetic data with `bun run redis:seed`.
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: edison-dev-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:6399:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+volumes:
+  redis-data:

@@ -10,7 +10,10 @@
     "lint": "eslint .",
     "test": "vitest",
     "test:run": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "redis:up": "docker compose up -d redis",
+    "redis:down": "docker compose down",
+    "redis:seed": "bun scripts/redis-seed.ts"
   },
   "dependencies": {
     "@google/genai": "3.3.0",

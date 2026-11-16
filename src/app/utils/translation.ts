@@ -14,7 +14,7 @@ if (geminiApiKey) {
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Wrapper to call Gemini API with exponential backoff retries (maximum 3 retries)
-async function callGeminiWithRetry(prompt: string, maxTokens?: number): Promise<string> {
+async function callGeminiWithRetry(prompt: string, maxTokens?: number, requireComplete = false): Promise<string> {
   if (!ai) throw new Error("GoogleGenAI client is not initialized");
   
   let attempt = 0;
@@ -30,6 +30,11 @@ async function callGeminiWithRetry(prompt: string, maxTokens?: number): Promise<
           maxOutputTokens: maxTokens,
         }
       });
+      const finishReason = response.candidates?.[0]?.finishReason;
+      if (requireComplete && finishReason && finishReason !== 'STOP') {
+        // Truncated (MAX_TOKENS) or blocked output must never be stored as a translation.
+        throw new Error(`Gemini returned an incomplete response (finishReason: ${finishReason})`);
+      }
       if (response.text) return response.text;
       throw new Error("Empty response received from Gemini");
     } catch (error: any) {
@@ -72,5 +77,5 @@ export async function translateText(text: string, targetLang: 'es' | 'en'): Prom
   const prompt = `You are an expert technical translator. Translate the following text from ${sourceLangLabel} to ${targetLangLabel}.
 Maintain all technical terms, names, code blocks, HTML tags, markdown structure/formatting, and emojis exactly as they are.
 Respond ONLY with the translated text. Do not add any introduction, explanations, or notes:\n\n${text}`;
-  return callGeminiWithRetry(prompt);
+  return callGeminiWithRetry(prompt, undefined, true);
 }

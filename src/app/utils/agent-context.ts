@@ -40,7 +40,16 @@ export const toRepositoryContext = (repo: BilingualRepository): RepositoryContex
   };
 };
 
+// For the system prompt: one description field when both languages are identical (untranslated repos).
+const compactRepositoryContext = (repo: BilingualRepository) => {
+  const { description_es, description_en, ...rest } = toRepositoryContext(repo);
+  return description_es === description_en
+    ? { ...rest, description: description_en }
+    : { ...rest, description_es, description_en };
+};
+
 export const buildSystemInstruction = (template: string, profile: unknown, repos: BilingualRepository[]) =>
   template
-    .replace('{{PROFILE_CONTEXT}}', JSON.stringify(profile))
-    .replace('{{GITHUB_CONTEXT}}', JSON.stringify(repos.map(toRepositoryContext)));
+    // Replacement functions, so `$&`-style sequences inside the data are not interpreted.
+    .replace('{{PROFILE_CONTEXT}}', () => JSON.stringify(profile))
+    .replace('{{GITHUB_CONTEXT}}', () => JSON.stringify(repos.map(compactRepositoryContext)));

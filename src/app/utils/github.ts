@@ -30,6 +30,8 @@ const REFRESH_BUDGET_MS = 40_000; // stop translating and save progress before t
 const GITHUB_REFRESH_TIMEOUT_MS = 8_000;
 const GITHUB_REQUEST_TIMEOUT_MS = 2_500; // request path: never make a visitor wait on GitHub
 const MIN_README_LENGTH = 100;
+// GitHub repository names: letters, digits, '.', '_' and '-', up to 100 characters ('.' and '..' are reserved).
+const VALID_REPO_NAME = /^(?!\.{1,2}$)[A-Za-z0-9._-]{1,100}$/;
 
 // --- Interfaces ---
 export interface GitHubRepository {
@@ -350,7 +352,8 @@ export const getRepositoryByName = cache(async (repoName: string): Promise<Bilin
     console.error('Missing GITHUB_REPO_OWNER environment variable');
     return null;
   }
-  if (!repoName) return null;
+  // An impossible name cannot exist on GitHub: answer 404 without calling it.
+  if (!VALID_REPO_NAME.test(repoName)) return null;
 
   const cachedRepo: BilingualRepository | null = await getCachedData(`github:repo:bilingual:${repoName}`);
   if (cachedRepo) return cachedRepo;
@@ -370,7 +373,8 @@ export const getRepositoryByName = cache(async (repoName: string): Promise<Bilin
     throw new Error(`Failed to fetch repository details for ${repoName}: ${response.status} ${response.statusText}`);
   }
   const repoDetails = (await response.json()) as GitHubRepository;
+  // Not scheduling a refresh here: repositories missing from the snapshot are usually the ones
+  // filtered out (short README), and visitors must not be able to trigger refreshes at will.
   const readme = await getReadmeContent(repoDetails.name);
-  scheduleRefresh();
   return untranslated(repoDetails, readme);
 });

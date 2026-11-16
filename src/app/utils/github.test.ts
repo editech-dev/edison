@@ -150,6 +150,24 @@ describe('github repositories: read path never waits on GitHub or Gemini', () =>
     expect(await getRepositoryByName('does-not-exist')).toBeNull();
   });
 
+  it('answers impossible repository names as not found without calling GitHub', async () => {
+    const { getRepositoryByName } = await load();
+
+    for (const name of ['..', '.', '../../users', 'a/b', 'name?x=1', 'x'.repeat(101), '']) {
+      expect(await getRepositoryByName(name)).toBeNull();
+    }
+    expect(fakeFetch).not.toHaveBeenCalled();
+  });
+
+  it('does not schedule refreshes for a repository that is only on GitHub', async () => {
+    fetchMode.status = undefined;
+    fakeFetch.mockImplementationOnce(() => Promise.resolve(Response.json(repo('unlisted'))));
+    const { getRepositoryByName } = await load();
+
+    expect((await getRepositoryByName('unlisted'))?.name).toBe('unlisted');
+    expect(scheduled).toHaveLength(0);
+  });
+
   it('resolves a known repository from the snapshot without calling GitHub', async () => {
     store.set(SNAPSHOT_KEY, { generatedAt: Date.now(), complete: true, repos: [bilingual('alpha')] });
     const { getRepositoryByName } = await load();

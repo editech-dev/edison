@@ -4,6 +4,7 @@ import { FaComment, FaMinus, FaCloud, FaMicrochip } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { CHAT_UNAVAILABLE_MESSAGE, STREAM_ERROR_NOTICE } from '@/app/utils/chat-messages';
 
 // --- Interfaces ---
 interface Message {
@@ -161,88 +162,108 @@ export default function ChatBotComponent() {
       const systemInstruction = initialPrompt[0].text;
       let assistantResponse = '';
 
+      // Cloud model (gemini-flash-lite-latest) through /api/chat.
+      const streamFromCloud = async (): Promise<string> => {
+          const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+               messages: currentMessages,
+               systemInstruction: systemInstruction
+            })
+          });
+
+          if (!response.ok) {
+             const errText = await response.text();
+             let serverMessage = '';
+             try {
+               serverMessage = JSON.parse(errText).error ?? '';
+             } catch {
+               serverMessage = errText;
+             }
+             throw new Error(serverMessage || CHAT_UNAVAILABLE_MESSAGE);
+          }
+
+          const reader = response.body?.getReader();
+          const decoder = new TextDecoder();
+          if (!reader) {
+            throw new Error("No reader available on response body.");
+          }
+
+          setMessages(prev => {
+            const updated = [...prev];
+            const lastIndex = updated.length - 1;
+            if (updated[lastIndex].content === '...') {
+              updated[lastIndex] = { role: 'assistant', content: '' };
+            }
+            return updated;
+          });
+
+          let accumulatedResponse = '';
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value, { stream: true });
+            accumulatedResponse += chunk;
+
+            setMessages(prev => {
+              const updated = [...prev];
+              const lastIndex = updated.length - 1;
+              updated[lastIndex] = { role: 'assistant', content: accumulatedResponse };
+              return updated;
+            });
+          }
+        
+          if (!accumulatedResponse.trim()) {
+            throw new Error(CHAT_UNAVAILABLE_MESSAGE);
+          }
+          return accumulatedResponse;
+      };
+
       if (activeModel === 'local') {
-        const ai = typeof window !== 'undefined' ? (window as any).ai : undefined;
-        if (!localSessionRef.current) {
-          if (ai?.languageModel) {
-            const session = await ai.languageModel.create({
+        // Gemini Nano in the visitor's Chrome. If it is unavailable, fails before writing anything or
+        // returns nothing, the answer comes from the cloud model instead of showing an error.
+        let accumulatedLocal = '';
+        try {
+          const ai = typeof window !== 'undefined' ? (window as any).ai : undefined;
+          if (!localSessionRef.current) {
+            if (!ai?.languageModel) {
+              throw new Error("Local AI mode is not supported in this browser.");
+            }
+            localSessionRef.current = await ai.languageModel.create({
               systemPrompt: systemInstruction
             });
-            localSessionRef.current = session;
-          } else {
-            throw new Error("Local AI mode is not supported in this browser.");
           }
-        }
 
-        const stream = localSessionRef.current.promptStreaming(newUserMessage.content);
-        
-        setMessages(prev => {
-          const updated = [...prev];
-          const lastIndex = updated.length - 1;
-          if (updated[lastIndex].content === '...') {
-            updated[lastIndex] = { role: 'assistant', content: '' };
-          }
-          return updated;
-        });
+          const stream = localSessionRef.current.promptStreaming(newUserMessage.content);
 
-        let accumulatedLocal = '';
-        for await (const chunk of stream) {
-          accumulatedLocal = chunk;
           setMessages(prev => {
             const updated = [...prev];
             const lastIndex = updated.length - 1;
-            updated[lastIndex] = { role: 'assistant', content: accumulatedLocal };
+            if (updated[lastIndex].content === '...') {
+              updated[lastIndex] = { role: 'assistant', content: '' };
+            }
             return updated;
           });
+
+          for await (const chunk of stream) {
+            accumulatedLocal = chunk;
+            setMessages(prev => {
+              const updated = [...prev];
+              const lastIndex = updated.length - 1;
+              updated[lastIndex] = { role: 'assistant', content: accumulatedLocal };
+              return updated;
+            });
+          }
+        } catch (localError) {
+          if (accumulatedLocal) throw localError;
+          console.warn('Gemini Nano unavailable, answering with the cloud model:', localError);
+          localSessionRef.current = null;
         }
-        assistantResponse = accumulatedLocal;
+        assistantResponse = accumulatedLocal || await streamFromCloud();
       } else {
-        const response = await fetch('/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-             messages: currentMessages,
-             systemInstruction: systemInstruction
-          })
-        });
-
-        if (!response.ok) {
-           const errText = await response.text();
-           throw new Error(errText || `Server error: ${response.status}`);
-        }
-
-        const reader = response.body?.getReader();
-        const decoder = new TextDecoder();
-        if (!reader) {
-          throw new Error("No reader available on response body.");
-        }
-
-        setMessages(prev => {
-          const updated = [...prev];
-          const lastIndex = updated.length - 1;
-          if (updated[lastIndex].content === '...') {
-            updated[lastIndex] = { role: 'assistant', content: '' };
-          }
-          return updated;
-        });
-
-        let accumulatedResponse = '';
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          const chunk = decoder.decode(value, { stream: true });
-          accumulatedResponse += chunk;
-
-          setMessages(prev => {
-            const updated = [...prev];
-            const lastIndex = updated.length - 1;
-            updated[lastIndex] = { role: 'assistant', content: accumulatedResponse };
-            return updated;
-          });
-        }
-        
-        assistantResponse = accumulatedResponse;
+        assistantResponse = await streamFromCloud();
       }
 
       setMessages(prev => {
@@ -261,8 +282,14 @@ export default function ChatBotComponent() {
       console.error('Chat Error:', error);
       setMessages(prev => {
         const updated = [...prev];
-        if (updated[updated.length - 1].content === '...') {
-          updated[updated.length - 1].content = `Error: ${error.message}`;
+        const last = updated[updated.length - 1];
+        if (last?.role === 'assistant') {
+          // Never leave an empty bubble: replace the placeholder, or flag a partial answer.
+          const partial = last.content !== '...' && last.content.trim() !== '' && last.content !== 'Initializing system...';
+          updated[updated.length - 1] = {
+            ...last,
+            content: partial ? `${last.content}${STREAM_ERROR_NOTICE}` : `Error: ${error?.message || CHAT_UNAVAILABLE_MESSAGE}`,
+          };
         }
         return updated;
       });

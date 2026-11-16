@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock, type MockInstance } from 'vitest';
 
 // ── Mock framer-motion to avoid animation issues in JSDOM ──
 vi.mock('framer-motion', async () => {
@@ -140,7 +140,7 @@ describe('CvClientPage', () => {
   let mockRevokeObjectURL: ReturnType<typeof vi.fn>;
   let appendChildSpy: MockInstance<(node: Node) => Node>;
   let removeChildSpy: MockInstance<(child: Node) => Node>;
-  let clickSpy: ReturnType<typeof vi.fn>;
+  let clickSpy: Mock<() => void>;
 
   beforeEach(() => {
     // ── Mock fetch globally ──

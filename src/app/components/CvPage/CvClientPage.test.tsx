@@ -1,18 +1,19 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from 'vitest';
 
 // ── Mock framer-motion to avoid animation issues in JSDOM ──
-vi.mock('framer-motion', () => {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const React = require('react');
+vi.mock('framer-motion', async () => {
+  const React = await import('react');
+  const MotionDiv = React.forwardRef((props: any, ref: any) => {
+    const { children, initial, animate, exit, transition, ...rest } = props;
+    return React.createElement('div', { ref, ...rest }, children);
+  });
+  MotionDiv.displayName = 'MotionDiv';
   return {
     motion: {
-      div: React.forwardRef((props: any, ref: any) => {
-        const { children, initial, animate, exit, transition, ...rest } = props;
-        return React.createElement('div', { ref, ...rest }, children);
-      }),
+      div: MotionDiv,
     },
     AnimatePresence: ({ children }: any) => children,
   };
@@ -137,8 +138,8 @@ describe('CvClientPage', () => {
   // ── Reusable spy mocks for the download flow ──
   let mockCreateObjectURL: ReturnType<typeof vi.fn>;
   let mockRevokeObjectURL: ReturnType<typeof vi.fn>;
-  let appendChildSpy: ReturnType<typeof vi.spyOn>;
-  let removeChildSpy: ReturnType<typeof vi.spyOn>;
+  let appendChildSpy: MockInstance<(node: Node) => Node>;
+  let removeChildSpy: MockInstance<(child: Node) => Node>;
   let clickSpy: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {

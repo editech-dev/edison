@@ -391,7 +391,7 @@ export default function ChatBotComponent() {
             >
               {messages.length === 0 && (
                 <div className="text-zinc-500 text-xs italic text-center mt-8">
-                  Ask me anything about Edison's background, projects, or expertise.
+                  Ask me anything about Edison&apos;s background, projects, or expertise.
                 </div>
               )}
               {messages.map((msg, index) => (

@@ -30,7 +30,7 @@ export async function GET() {
 
     // 3. Leer el prompt XML
     const xmlPath = path.join(process.cwd(), 'src/app/utils/expert_persona.xml');
-    let xmlTemplate = fs.readFileSync(xmlPath, 'utf8');
+    const xmlTemplate = fs.readFileSync(xmlPath, 'utf8');
 
     // 4. Inyectar contexto en el XML
     const systemInstruction = xmlTemplate

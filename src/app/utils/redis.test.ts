@@ -113,6 +113,27 @@ describe('redis client resilience', () => {
     expect(Date.now() - started).toBeLessThan(3000);
   });
 
+  it('does not hang when an established connection stops answering commands', async () => {
+    process.env.REDIS_URL = 'redis://example.invalid:6379';
+    connectBehaviours.push('ok');
+    const { mod, createClient } = await loadModule();
+
+    await mod.cacheData('k', 'first', 60);
+    // The server freezes: the socket stays open but commands never answer.
+    createdClients[0].get = () => new Promise(() => {});
+
+    const started = Date.now();
+    expect(await mod.getCachedData('k')).toBeNull(); // served from memory (empty), not hanging
+    expect(Date.now() - started).toBeLessThan(2500);
+    expect(createdClients[0].disconnect).toHaveBeenCalled();
+
+    // During the cooldown the frozen client is not used again.
+    const again = Date.now();
+    await mod.getCachedData('k');
+    expect(Date.now() - again).toBeLessThan(100);
+    expect(createClient).toHaveBeenCalledTimes(1);
+  });
+
   it('recovers after a runtime error on an established connection', async () => {
     process.env.REDIS_URL = 'redis://example.invalid:6379';
     vi.useFakeTimers({ toFake: ['Date'] });

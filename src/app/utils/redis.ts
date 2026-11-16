@@ -6,6 +6,8 @@ import path from 'path';
 const REDIS_URL = process.env.REDIS_URL;
 // Never make a request wait longer than this for a connection.
 const CONNECT_TIMEOUT_MS = 2000;
+// A command slower than this counts as an outage (e.g. a frozen server with the socket still open).
+const COMMAND_TIMEOUT_MS = 2000;
 // After a failure, serve from memory for this long before trying Redis again.
 const RETRY_COOLDOWN_MS = 30_000;
 
@@ -28,10 +30,10 @@ const markUnavailable = (reason: unknown) => {
     retryAfter = Date.now() + RETRY_COOLDOWN_MS;
 };
 
-const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> => {
+const withTimeout = <T>(promise: Promise<T>, ms: number, label = 'Redis connection timeout'): Promise<T> => {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new Error('Redis connection timeout')), ms);
+        timer = setTimeout(() => reject(new Error(label)), ms);
     });
     return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 };
@@ -53,11 +55,38 @@ const createRedisClient = (): RedisClient => {
     return created;
 };
 
+// Every command of the returned client is bounded by COMMAND_TIMEOUT_MS. A timeout discards the
+// client and starts the cooldown, so a frozen server never makes requests wait.
+const guarded = new WeakMap<RedisClient, RedisClient>();
+const guard = (target: RedisClient): RedisClient => {
+    const existing = guarded.get(target);
+    if (existing) return existing;
+    const proxy = new Proxy(target, {
+        get(obj, prop, receiver) {
+            const value = Reflect.get(obj, prop, receiver);
+            if (typeof value !== 'function') return value;
+            return (...args: unknown[]) => {
+                const result = value.apply(obj, args);
+                if (!(result instanceof Promise)) return result;
+                return withTimeout(result, COMMAND_TIMEOUT_MS, 'Redis command timeout').catch((err: unknown) => {
+                    if (err instanceof Error && err.message === 'Redis command timeout' && client === obj) {
+                        markUnavailable(err);
+                        discard(obj);
+                    }
+                    throw err;
+                });
+            };
+        },
+    });
+    guarded.set(target, proxy);
+    return proxy;
+};
+
 // Returns a ready client, or null when Redis is not configured or currently unavailable.
 // A failure is never permanent: after RETRY_COOLDOWN_MS a new connection is attempted.
 const getClient = async (): Promise<RedisClient | null> => {
     if (!REDIS_URL) return null;
-    if (client?.isReady) return client;
+    if (client?.isReady) return guard(client);
     if (Date.now() < retryAfter) return null;
 
     if (!connecting) {
@@ -73,7 +102,7 @@ const getClient = async (): Promise<RedisClient | null> => {
             });
     }
     await connecting;
-    return client?.isReady ? client : null;
+    return client?.isReady ? guard(client) : null;
 };
 
 // --- In-Memory Mock Fallback Store ---

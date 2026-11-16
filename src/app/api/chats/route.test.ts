@@ -52,13 +52,37 @@ describe('GET /api/chats', () => {
 
   it('returns 500 when listChats throws an exception', async () => {
     vi.mocked(listChats).mockRejectedValue(new Error('Redis connection lost'));
+    process.env.ADMIN_API_TOKEN = 'test-token';
 
-    const req = new Request('http://localhost:3000/api/chats');
+    const req = new Request('http://localhost:3000/api/chats', {
+      headers: { authorization: 'Bearer test-token' },
+    });
 
     const response = await GET(req);
     const data = await response.json();
 
     expect(response.status).toBe(500);
     expect(data).toEqual({ error: 'Internal Server Error' });
+    delete process.env.ADMIN_API_TOKEN;
+  });
+
+  it('fails closed with 401 when ADMIN_API_TOKEN is not configured, without reading Redis', async () => {
+    delete process.env.ADMIN_API_TOKEN;
+
+    const cases: Record<string, string>[] = [{}, { authorization: 'Bearer ' }, { authorization: 'Bearer undefined' }];
+    for (const headers of cases) {
+      const response = await GET(new Request('http://localhost:3000/api/chats', { headers }));
+      expect(response.status).toBe(401);
+    }
+    expect(listChats).not.toHaveBeenCalled();
+  });
+
+  it('returns 401 without an authorization header when the token is configured', async () => {
+    process.env.ADMIN_API_TOKEN = 'test-token';
+
+    const response = await GET(new Request('http://localhost:3000/api/chats'));
+    expect(response.status).toBe(401);
+    expect(listChats).not.toHaveBeenCalled();
+    delete process.env.ADMIN_API_TOKEN;
   });
 });

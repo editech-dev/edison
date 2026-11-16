@@ -4,14 +4,10 @@
 import { createClient } from 'redis';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { LOCAL_REDIS_URL } from '../src/app/utils/runtime-env';
+import { LOCAL_REDIS_URL, assertLocalRedis } from '../src/app/utils/runtime-env';
 
 const url = process.env.REDIS_DEV_URL && process.env.REDIS_DEV_URL !== 'memory' ? process.env.REDIS_DEV_URL : LOCAL_REDIS_URL;
-const host = new URL(url).hostname;
-if (!['127.0.0.1', 'localhost', '::1', '[::1]'].includes(host)) {
-  console.error(`Refusing to seed a non-local Redis (${host}). This script is for local development only.`);
-  process.exit(1);
-}
+assertLocalRedis(url, 'seed');
 
 const fallback = JSON.parse(readFileSync(join(process.cwd(), 'src/data/bilingual-repos-fallback.json'), 'utf8')) as Record<string, unknown>;
 const repoNames = Object.keys(fallback);

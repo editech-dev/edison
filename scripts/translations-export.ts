@@ -5,15 +5,11 @@
 import { createClient } from 'redis';
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
-import { LOCAL_REDIS_URL } from '../src/app/utils/runtime-env';
+import { LOCAL_REDIS_URL, assertLocalRedis } from '../src/app/utils/runtime-env';
 import type { BilingualRepository } from '../src/app/utils/github';
 
 const url = process.env.REDIS_DEV_URL && process.env.REDIS_DEV_URL !== 'memory' ? process.env.REDIS_DEV_URL : LOCAL_REDIS_URL;
-const host = new URL(url).hostname;
-if (!['127.0.0.1', 'localhost', '::1', '[::1]'].includes(host)) {
-  console.error(`Refusing to read a non-local Redis (${host}). Translations are exported from local development only.`);
-  process.exit(1);
-}
+assertLocalRedis(url, 'read');
 
 const file = join(process.cwd(), 'src/data/bilingual-repos-fallback.json');
 const current = JSON.parse(readFileSync(file, 'utf8')) as Record<string, BilingualRepository>;

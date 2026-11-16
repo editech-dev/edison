@@ -68,6 +68,7 @@ describe('redis client resilience', () => {
     process.env.REDIS_DEV_URL = 'memory';
     delete process.env.REDIS_URL;
     delete process.env.VERCEL_ENV;
+    delete process.env.VERCEL;
   });
 
   it('uses the in-memory store without trying to connect when Redis is disabled', async () => {
@@ -135,6 +136,7 @@ describe('redis client resilience', () => {
   });
 
   it('in production, refuses locks while Redis is unavailable (no per-instance memory lock)', async () => {
+    process.env.VERCEL = '1';
     process.env.VERCEL_ENV = 'production';
     process.env.REDIS_URL = 'redis://example.invalid:6379';
     connectBehaviours.push('fail');

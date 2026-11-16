@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { GoogleGenAI, type Content, type FunctionCall, type Part } from '@google/genai';
 import { chatbotToolDeclarations, executeChatbotTool } from '@/app/utils/chatbot_tools';
 import { CHAT_UNAVAILABLE_MESSAGE, STREAM_ERROR_NOTICE } from '@/app/utils/chat-messages';
+import { resolveGeminiApiKey } from '@/app/utils/runtime-env';
 
 export const dynamic = 'force-dynamic';
 
@@ -130,7 +131,7 @@ export async function POST(req: Request) {
   const chatMessages = messages as ChatMessage[];
   const instruction = typeof systemInstruction === 'string' ? systemInstruction : '';
 
-  const geminiApiKey = process.env.GEMINI_API_KEY;
+  const geminiApiKey = resolveGeminiApiKey();
   if (!geminiApiKey) {
     console.error('GEMINI_API_KEY is not defined');
     return NextResponse.json({ error: CHAT_UNAVAILABLE_MESSAGE }, { status: 503 });

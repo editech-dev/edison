@@ -1,9 +1,12 @@
 import { createClient } from 'redis';
 import fs from 'fs';
 import path from 'path';
+import { isProduction, resolveRedisUrl } from './runtime-env';
 
-// Without REDIS_URL the app always uses the in-memory store (local development and tests).
-const REDIS_URL = process.env.REDIS_URL;
+// Production reads REDIS_URL; development always uses the local Docker Redis (never production), see
+// runtime-env.ts. Without a URL (REDIS_DEV_URL=memory) the in-memory store is used.
+const REDIS_URL = resolveRedisUrl();
+const IS_PRODUCTION = isProduction();
 // Never make a request wait longer than this for a connection.
 const CONNECT_TIMEOUT_MS = 2000;
 // A command slower than this counts as an outage (e.g. a frozen server with the socket still open).
@@ -272,9 +275,9 @@ export const getCachedData = async (key: string) => {
 // --- Short-lived locks (avoid running the same background job twice at once) ---
 const memoryLocks = new Map<string, number>();
 
-// With REDIS_URL configured, the lock must be shared: if Redis is unavailable the lock is refused
-// (an in-memory lock would let every serverless instance run the job at once). The in-memory lock is
-// only used when Redis is not configured at all (local development, tests).
+// In production the lock must be shared: if Redis is unavailable the lock is refused (an in-memory lock
+// would let every serverless instance run the job at once). In development (a single local process) the
+// in-memory lock is fine when the local Redis is off.
 export const acquireLock = async (key: string, ttlSeconds: number): Promise<boolean> => {
     const redis = await getClient();
     if (redis) {
@@ -285,7 +288,7 @@ export const acquireLock = async (key: string, ttlSeconds: number): Promise<bool
             return false;
         }
     }
-    if (REDIS_URL) return false;
+    if (IS_PRODUCTION) return false;
 
     const now = Date.now();
     const lockedUntil = memoryLocks.get(key);

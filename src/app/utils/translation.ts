@@ -1,6 +1,7 @@
 import { GoogleGenAI } from '@google/genai';
+import { resolveGeminiApiKey } from './runtime-env';
 
-const geminiApiKey = process.env.GEMINI_API_KEY;
+const geminiApiKey = resolveGeminiApiKey();
 
 let ai: GoogleGenAI | null = null;
 if (geminiApiKey) {

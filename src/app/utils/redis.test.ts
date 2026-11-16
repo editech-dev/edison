@@ -55,7 +55,6 @@ const loadModule = async () => {
 };
 
 describe('redis client resilience', () => {
-  const originalUrl = process.env.REDIS_URL;
 
   beforeEach(() => {
     connectBehaviours.length = 0;
@@ -66,12 +65,13 @@ describe('redis client resilience', () => {
 
   afterEach(() => {
     vi.useRealTimers();
-    if (originalUrl === undefined) delete process.env.REDIS_URL;
-    else process.env.REDIS_URL = originalUrl;
+    process.env.REDIS_DEV_URL = 'memory';
+    delete process.env.REDIS_URL;
+    delete process.env.VERCEL_ENV;
   });
 
-  it('uses the in-memory store without trying to connect when REDIS_URL is empty', async () => {
-    delete process.env.REDIS_URL;
+  it('uses the in-memory store without trying to connect when Redis is disabled', async () => {
+    process.env.REDIS_DEV_URL = 'memory';
     const { mod, createClient } = await loadModule();
 
     await mod.cacheData('k', { a: 1 }, 60);
@@ -80,7 +80,7 @@ describe('redis client resilience', () => {
   });
 
   it('falls back to memory on a failed connection and retries after the cooldown', async () => {
-    process.env.REDIS_URL = 'redis://example.invalid:6379';
+    process.env.REDIS_DEV_URL = 'redis://example.invalid:6379';
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-11-16T10:00:00Z'));
     connectBehaviours.push('fail', 'ok');
@@ -104,7 +104,7 @@ describe('redis client resilience', () => {
   });
 
   it('does not wait more than the connect timeout when Redis hangs', async () => {
-    process.env.REDIS_URL = 'redis://example.invalid:6379';
+    process.env.REDIS_DEV_URL = 'redis://example.invalid:6379';
     connectBehaviours.push('hang');
     const { mod } = await loadModule();
 
@@ -114,7 +114,7 @@ describe('redis client resilience', () => {
   });
 
   it('does not hang when an established connection stops answering commands', async () => {
-    process.env.REDIS_URL = 'redis://example.invalid:6379';
+    process.env.REDIS_DEV_URL = 'redis://example.invalid:6379';
     connectBehaviours.push('ok');
     const { mod, createClient } = await loadModule();
 
@@ -134,7 +134,8 @@ describe('redis client resilience', () => {
     expect(createClient).toHaveBeenCalledTimes(1);
   });
 
-  it('refuses locks while a configured Redis is unavailable (no per-instance memory lock)', async () => {
+  it('in production, refuses locks while Redis is unavailable (no per-instance memory lock)', async () => {
+    process.env.VERCEL_ENV = 'production';
     process.env.REDIS_URL = 'redis://example.invalid:6379';
     connectBehaviours.push('fail');
     const { mod } = await loadModule();
@@ -142,8 +143,9 @@ describe('redis client resilience', () => {
     expect(await mod.acquireLock('job', 60)).toBe(false);
   });
 
-  it('uses an in-memory lock when Redis is not configured', async () => {
-    delete process.env.REDIS_URL;
+  it('in development, uses an in-memory lock when the local Redis is off', async () => {
+    process.env.REDIS_DEV_URL = 'redis://127.0.0.1:1';
+    connectBehaviours.push('fail');
     const { mod } = await loadModule();
 
     expect(await mod.acquireLock('job', 60)).toBe(true);
@@ -153,7 +155,7 @@ describe('redis client resilience', () => {
   });
 
   it('recovers after a runtime error on an established connection', async () => {
-    process.env.REDIS_URL = 'redis://example.invalid:6379';
+    process.env.REDIS_DEV_URL = 'redis://example.invalid:6379';
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-11-16T10:00:00Z'));
     connectBehaviours.push('ok', 'ok');

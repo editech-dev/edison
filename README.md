@@ -14,7 +14,7 @@ This project features **CyberStack**, an advanced AI Assistant designed to repre
     *   **LinkedIn**: Injects detailed verified experience from `src/data/profile.json`.
 *   **Chat Memory**: Full conversation history persistence using Redis.
 *   **Resilient answers**: The chat retries once on transient Gemini errors and never leaves an empty answer; tool calls (project views, repositories) run between model turns.
-*   **Dual AI Mode**: Users can switch between **Cloud AI** (`gemini-flash-lite-latest`) and **Local AI** (Chrome's built-in Gemini Nano) directly in the chat widget. If Gemini Nano is unavailable or fails, the answer comes from the cloud model.
+*   **Single model, compact context**: The chat always uses `gemini-flash-lite-latest`. Each message carries a compact portfolio context (descriptions and a short README preview per repository, about 15,000 tokens); full READMEs are fetched on demand by a tool.
 *   **Tool Calling**: The agent can execute function calls to fetch profile data, repository lists, README content, and page view counts in real time.
 
 ### 📄 Interactive CV / Resume
@@ -124,7 +124,7 @@ src/
 │   │       └── [slug]/       # View counter (POST increment + GET fetch)
 │   ├── components/
 │   │   ├── Card/             # Glassmorphic card with mouse-tracking gradient (Framer Motion)
-│   │   ├── ChatBot/          # CyberStack chat widget (Cloud/Local AI toggle, streaming, markdown)
+│   │   ├── ChatBot/          # CyberStack chat widget (streaming, markdown)
 │   │   ├── Contact/          # Contact page with social link cards
 │   │   ├── CvPage/           # Interactive bilingual CV + professional PDF component
 │   │   ├── HomePage/         # Landing page layout

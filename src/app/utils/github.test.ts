@@ -25,9 +25,10 @@ vi.mock('@/app/utils/redis', () => ({
 }));
 
 // --- Gemini stand-in ---
-const translation = { failing: false };
+const translation = { failing: false, quota: false };
 vi.mock('./translation', () => ({
   detectLanguage: vi.fn(async () => {
+    if (translation.quota) throw Object.assign(new Error('RESOURCE_EXHAUSTED: quota exceeded'), { status: 429 });
     if (translation.failing) throw Object.assign(new Error('UNAVAILABLE'), { status: 503 });
     return 'en';
   }),
@@ -225,6 +226,7 @@ describe('github repositories: background refresh', () => {
     locks.clear();
     scheduled.length = 0;
     translation.failing = false;
+    translation.quota = false;
     process.env.GITHUB_REPO_OWNER = 'owner';
     fetchMode = {
       list: [repo('alpha', { stargazers_count: 3 }), repo('beta'), repo('tiny')],
@@ -383,5 +385,17 @@ describe('github repositories: background refresh', () => {
 
     const [alpha] = await getPublicRepositories();
     expect(alpha.translated).toBe(false);
+  });
+
+  it('does not count quota errors as attempts and stops translating for an hour', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-16T10:00:00Z'));
+    translation.quota = true;
+    const { refreshPublicRepositories } = await load();
+
+    const snapshot = await refreshPublicRepositories();
+    expect(await translationCalls()).toBe(1); // first 429 stops the run
+    expect(store.has('github:translation-failure:alpha')).toBe(false);
+    expect(snapshot?.retryAt).toBe(new Date('2026-11-16T11:00:00Z').getTime());
   });
 });

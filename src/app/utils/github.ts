@@ -32,6 +32,13 @@ const MAX_TRANSLATION_ATTEMPTS = TRANSLATION_RETRY_DELAYS_MS.length + 1;
 // New translations per refresh (cache hits are free and not counted).
 const MAX_TRANSLATIONS_PER_REFRESH = 5;
 const FAILURE_KEY_PREFIX = 'github:translation-failure:';
+const QUOTA_RETRY_MS = 60 * 60 * 1000;
+
+const isQuotaError = (err: unknown) => {
+  const status = (err as { status?: number })?.status;
+  const message = err instanceof Error ? err.message : String(err);
+  return status === 429 || /\b429\b|RESOURCE_EXHAUSTED|quota/i.test(message);
+};
 const REFRESH_LOCK_KEY = 'github:repos:refresh-lock';
 const REFRESH_LOCK_TTL_SECONDS = 120;
 // Stop translating and save progress well before the 60 s maxDuration of the routes that refresh
@@ -323,6 +330,7 @@ export async function refreshPublicRepositories(): Promise<RepositoriesSnapshot 
 
     const repos: BilingualRepository[] = [];
     let translationsLeft = MAX_TRANSLATIONS_PER_REFRESH;
+    let quotaHit = false;
     let retryAt: number | undefined;
     const scheduleRetry = (at: number) => {
       retryAt = retryAt === undefined ? at : Math.min(retryAt, at);
@@ -351,8 +359,17 @@ export async function refreshPublicRepositories(): Promise<RepositoriesSnapshot 
         }
         // Needs a translation that this run could not do.
         if (waiting) scheduleRetry(failure!.nextRetryAt);
-        else if (!gaveUp) scheduleRetry(Date.now() + INCOMPLETE_RETRY_MS);
+        else if (!gaveUp) scheduleRetry(Date.now() + (quotaHit ? QUOTA_RETRY_MS : INCOMPLETE_RETRY_MS));
       } catch (err) {
+        if (isQuotaError(err)) {
+          // Quota or rate limit: not the repository's fault, so it does not count as an attempt (otherwise
+          // someone exhausting the quota could make translations be abandoned). Stop translating in this run
+          // and retry in an hour.
+          translationsLeft = 0;
+          quotaHit = true;
+          scheduleRetry(Date.now() + QUOTA_RETRY_MS);
+          console.error(`[Github bilingual cache] Gemini quota/rate limit while translating ${repo.name}; retrying later.`);
+        } else {
         translationsLeft--;
         const attempts = (failure?.attempts ?? 0) + 1;
         const delay = TRANSLATION_RETRY_DELAYS_MS[attempts - 1];
@@ -363,6 +380,7 @@ export async function refreshPublicRepositories(): Promise<RepositoriesSnapshot 
           `[Github bilingual cache] Could not translate ${repo.name} (attempt ${attempts}/${MAX_TRANSLATION_ATTEMPTS}); keeping the previous version:`,
           err instanceof Error ? err.message : err
         );
+        }
       }
 
       const known = previousByName.get(repo.name) ?? (fallback[repo.name] && fromFallback(fallback[repo.name]));

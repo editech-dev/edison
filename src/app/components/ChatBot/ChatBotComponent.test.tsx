@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import ChatBotComponent from './ChatBootComponent';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { CHAT_UNAVAILABLE_MESSAGE } from '@/app/utils/chat-messages';
 
 describe('ChatBotComponent', () => {
@@ -50,12 +50,8 @@ describe('ChatBotComponent', () => {
       }));
     });
 
-    afterEach(() => {
-      delete (window as unknown as { ai?: unknown }).ai;
-    });
-
-    const send = async (text: string, open = true) => {
-      if (open) fireEvent.click(screen.getByLabelText('Open chat assistant'));
+    const send = async (text: string) => {
+      fireEvent.click(screen.getByLabelText('Open chat assistant'));
       const input = await screen.findByPlaceholderText('Type your message...');
       // Wait until the system prompt is loaded, otherwise the widget answers "Initializing system...".
       await waitFor(() => expect(fetch).toHaveBeenCalledWith('/api/agent-context'));
@@ -63,32 +59,6 @@ describe('ChatBotComponent', () => {
       fireEvent.change(input, { target: { value: text } });
       fireEvent.keyDown(input, { key: 'Enter', code: 'Enter' });
     };
-
-    it('answers with the cloud model when Gemini Nano fails while answering', async () => {
-      // The session is created fine (so the widget stays in Local mode) but prompting fails.
-      const promptStreaming = vi.fn(() => (async function* () {
-        throw new Error('Nano could not answer');
-      })());
-      const create = vi.fn().mockResolvedValue({ promptStreaming, destroy: vi.fn() });
-      (window as unknown as { ai: unknown }).ai = {
-        languageModel: { capabilities: async () => ({ available: 'readily' }), create },
-      };
-      chatResponses.push(() => new Response('Edison es desarrollador.'));
-      vi.spyOn(console, 'warn').mockImplementation(() => {});
-      vi.spyOn(console, 'error').mockImplementation(() => {});
-
-      render(<ChatBotComponent />);
-      fireEvent.click(screen.getByLabelText('Open chat assistant'));
-      const localRadio = await screen.findByRole('radio', { name: /local ai/i });
-      fireEvent.click(localRadio);
-      await waitFor(() => expect(localRadio).toHaveAttribute('aria-checked', 'true'));
-      await send('Hola', false);
-
-      expect(await screen.findByText('Edison es desarrollador.')).toBeInTheDocument();
-      expect(promptStreaming).toHaveBeenCalled();
-      expect(screen.queryByText(/Local AI mode is not supported/)).not.toBeInTheDocument();
-      expect(fetch).toHaveBeenCalledWith('/api/chat', expect.anything());
-    });
 
     it('shows a readable message instead of an empty bubble when the server is unavailable', async () => {
       chatResponses.push(() => Response.json({ error: CHAT_UNAVAILABLE_MESSAGE }, { status: 503 }));

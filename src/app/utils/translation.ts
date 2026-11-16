@@ -50,37 +50,26 @@ async function callGeminiWithRetry(prompt: string, maxTokens?: number): Promise<
 
 /**
  * Detects whether the given text is primarily in Spanish ('es') or English ('en').
+ * Throws when Gemini is unavailable, so callers never persist a guessed language.
  */
 export async function detectLanguage(text: string): Promise<'es' | 'en'> {
-  try {
-    const prompt = `Analyze the following text and determine if it is in Spanish or English. Response must be ONLY 'es' or 'en' (no markdown, no punctuation, no extra text):\n\n${text.substring(0, 1000)}`;
-    const result = await callGeminiWithRetry(prompt, 5);
-    const lang = result.trim().toLowerCase();
-    if (lang === 'es' || lang === 'en') {
-      return lang as 'es' | 'en';
-    }
-    return 'en';
-  } catch (error) {
-    console.error("Error detecting language, defaulting to 'en':", error);
-    return 'en';
-  }
+  const prompt = `Analyze the following text and determine if it is in Spanish or English. Response must be ONLY 'es' or 'en' (no markdown, no punctuation, no extra text):\n\n${text.substring(0, 1000)}`;
+  const result = await callGeminiWithRetry(prompt, 5);
+  const lang = result.trim().toLowerCase();
+  return lang === 'es' ? 'es' : 'en';
 }
 
 /**
  * Translates the given text to the target language ('es' or 'en').
  * Preserves all formatting, markdown syntax, code blocks, HTML tags, and technical terms.
+ * Throws when Gemini is unavailable, so callers never persist an untranslated copy as a translation.
  */
 export async function translateText(text: string, targetLang: 'es' | 'en'): Promise<string> {
   if (!text || text.trim() === '') return text;
-  try {
-    const sourceLangLabel = targetLang === 'es' ? 'English' : 'Spanish';
-    const targetLangLabel = targetLang === 'es' ? 'Spanish' : 'English';
-    const prompt = `You are an expert technical translator. Translate the following text from ${sourceLangLabel} to ${targetLangLabel}.
+  const sourceLangLabel = targetLang === 'es' ? 'English' : 'Spanish';
+  const targetLangLabel = targetLang === 'es' ? 'Spanish' : 'English';
+  const prompt = `You are an expert technical translator. Translate the following text from ${sourceLangLabel} to ${targetLangLabel}.
 Maintain all technical terms, names, code blocks, HTML tags, markdown structure/formatting, and emojis exactly as they are.
 Respond ONLY with the translated text. Do not add any introduction, explanations, or notes:\n\n${text}`;
-    return await callGeminiWithRetry(prompt);
-  } catch (error) {
-    console.error(`Error translating text to ${targetLang}, falling back to original:`, error);
-    return text;
-  }
+  return callGeminiWithRetry(prompt);
 }

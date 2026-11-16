@@ -5,23 +5,24 @@ import fs from 'fs';
 import path from 'path';
 
 export const dynamic = 'force-dynamic'; // Ensure it's not cached at build time
+// Leaves room for the background refresh scheduled with `after()`; the response itself never waits on it.
+export const maxDuration = 60;
 
 export async function GET() {
   try {
-    // 1. Obtener datos de GitHub
+    // 1. Repositorios desde la caché (nunca espera a GitHub ni a Gemini)
     const rawGithubData = await getPublicRepositories();
-    
-    // Inyectar extractos del README para enriquecer el contexto neuronal
-    const { getReadmeContent } = await import('@/app/utils/github');
-    const githubData = await Promise.all(rawGithubData.map(async (repo) => {
-        const readme = await getReadmeContent(repo.name);
+
+    // Extracto del README original para enriquecer el contexto, sin llamadas extra a GitHub
+    const githubData = rawGithubData.map((repo) => {
+        const readme = repo[repo.originalLanguage]?.readme ?? repo.en?.readme ?? repo.es?.readme ?? null;
         // Truncate to first 400 chars to avoid prompt bloat but keep context
         const readmePreview = readme ? readme.substring(0, 400).replace(/\n/g, ' ') + '...' : 'No description available';
         return {
             ...repo,
             readme_preview: readmePreview
         };
-    }));
+    });
 
     // 2. Leer el perfil local (con soporte de Redis y fallback)
     const { getCvProfile } = await import('@/app/utils/redis');

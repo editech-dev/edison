@@ -1,6 +1,9 @@
 import { MetadataRoute } from 'next';
 import { getPublicRepositories } from '@/app/utils/github';
 
+// Repositories come from the cached snapshot (no fetch), so revalidation is declared explicitly.
+export const revalidate = 3600;
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://editech.dev';
 

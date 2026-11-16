@@ -238,6 +238,37 @@ export const getCachedData = async (key: string) => {
     return data ? JSON.parse(data) : null;
 };
 
+// --- Short-lived locks (avoid running the same background job twice at once) ---
+const memoryLocks = new Map<string, number>();
+
+export const acquireLock = async (key: string, ttlSeconds: number): Promise<boolean> => {
+    const redis = await getClient();
+    if (redis) {
+        try {
+            return (await redis.set(key, '1', { NX: true, EX: ttlSeconds })) === 'OK';
+        } catch (error) {
+            console.error(`[Redis] Error acquiring lock ${key}:`, error);
+        }
+    }
+
+    const now = Date.now();
+    const lockedUntil = memoryLocks.get(key);
+    if (lockedUntil && lockedUntil > now) return false;
+    memoryLocks.set(key, now + ttlSeconds * 1000);
+    return true;
+};
+
+export const releaseLock = async (key: string): Promise<void> => {
+    memoryLocks.delete(key);
+    const redis = await getClient();
+    if (!redis) return;
+    try {
+        await redis.del(key);
+    } catch (error) {
+        console.error(`[Redis] Error releasing lock ${key}:`, error);
+    }
+};
+
 // --- View Counter Utils ---
 export const getViews = async (slug: string): Promise<number> => {
     const redis = await getClient();

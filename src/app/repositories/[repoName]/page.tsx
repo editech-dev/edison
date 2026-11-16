@@ -4,6 +4,9 @@ import { getPublicRepositories } from '@/app/utils/github';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
+// Details come from the cached snapshot (no fetch), so revalidation is declared explicitly.
+export const revalidate = 3600;
+
 // Interface para los parámetros RESUELTOS (después del await)
 interface ResolvedRepositoryPageParams {
   repoName: string;

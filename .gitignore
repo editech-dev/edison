@@ -42,3 +42,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# arnés de trabajo local (privado)
+/.claude/
+/CLAUDE.md
+/CLAUDE.local.md
+/.mcp.json
+/docs/
+/scripts/sdd/
+/.agents/

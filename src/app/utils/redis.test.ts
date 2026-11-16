@@ -1,0 +1,180 @@
+// @vitest-environment node
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+type Handler = (err: Error) => void;
+
+interface FakeClient {
+  isReady: boolean;
+  handlers: Record<string, Handler>;
+  store: Map<string, string>;
+  connect: ReturnType<typeof vi.fn>;
+  disconnect: ReturnType<typeof vi.fn>;
+  on: (event: string, handler: Handler) => FakeClient;
+  get: (key: string) => Promise<string | null>;
+  set: (key: string, value: string) => Promise<'OK'>;
+}
+
+// Each createClient() call takes the next behaviour from this queue.
+const connectBehaviours: Array<'ok' | 'fail' | 'hang'> = [];
+const createdClients: FakeClient[] = [];
+
+vi.mock('redis', () => ({
+  createClient: vi.fn(() => {
+    const behaviour = connectBehaviours.shift() ?? 'ok';
+    const client: FakeClient = {
+      isReady: false,
+      handlers: {},
+      store: new Map(),
+      connect: vi.fn(() => {
+        if (behaviour === 'fail') return Promise.reject(new Error('ECONNREFUSED'));
+        if (behaviour === 'hang') return new Promise(() => {});
+        client.isReady = true;
+        return Promise.resolve(client);
+      }),
+      disconnect: vi.fn(() => Promise.resolve()),
+      on(event, handler) {
+        client.handlers[event] = handler;
+        return client;
+      },
+      get: async (key) => client.store.get(key) ?? null,
+      set: async (key, value) => {
+        client.store.set(key, value);
+        return 'OK';
+      },
+    };
+    createdClients.push(client);
+    return client;
+  }),
+}));
+
+const loadModule = async () => {
+  vi.resetModules();
+  const redis = await import('redis');
+  const mod = await import('./redis');
+  return { mod, createClient: vi.mocked(redis.createClient) };
+};
+
+describe('redis client resilience', () => {
+
+  beforeEach(() => {
+    connectBehaviours.length = 0;
+    createdClients.length = 0;
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    process.env.REDIS_DEV_URL = 'memory';
+    delete process.env.REDIS_URL;
+    delete process.env.VERCEL_ENV;
+    delete process.env.VERCEL;
+  });
+
+  it('uses the in-memory store without trying to connect when Redis is disabled', async () => {
+    process.env.REDIS_DEV_URL = 'memory';
+    const { mod, createClient } = await loadModule();
+
+    await mod.cacheData('k', { a: 1 }, 60);
+    expect(await mod.getCachedData('k')).toEqual({ a: 1 });
+    expect(createClient).not.toHaveBeenCalled();
+  });
+
+  it('falls back to memory on a failed connection and retries after the cooldown', async () => {
+    process.env.REDIS_DEV_URL = 'redis://example.invalid:6379';
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-16T10:00:00Z'));
+    connectBehaviours.push('fail', 'ok');
+    const { mod, createClient } = await loadModule();
+
+    await mod.cacheData('k', 'memory', 60);
+    expect(await mod.getCachedData('k')).toBe('memory');
+    expect(createClient).toHaveBeenCalledTimes(1);
+
+    // Still inside the cooldown: no new connection attempt.
+    vi.setSystemTime(new Date('2026-11-16T10:00:10Z'));
+    await mod.getCachedData('k');
+    expect(createClient).toHaveBeenCalledTimes(1);
+
+    // Cooldown elapsed: reconnects and uses Redis again.
+    vi.setSystemTime(new Date('2026-11-16T10:01:00Z'));
+    await mod.cacheData('k', 'redis', 60);
+    expect(createClient).toHaveBeenCalledTimes(2);
+    expect(createdClients[1].store.get('k')).toBe(JSON.stringify('redis'));
+    expect(await mod.getCachedData('k')).toBe('redis');
+  });
+
+  it('does not wait more than the connect timeout when Redis hangs', async () => {
+    process.env.REDIS_DEV_URL = 'redis://example.invalid:6379';
+    connectBehaviours.push('hang');
+    const { mod } = await loadModule();
+
+    const started = Date.now();
+    expect(await mod.getCachedData('missing')).toBeNull();
+    expect(Date.now() - started).toBeLessThan(3000);
+  });
+
+  it('does not hang when an established connection stops answering commands', async () => {
+    process.env.REDIS_DEV_URL = 'redis://example.invalid:6379';
+    connectBehaviours.push('ok');
+    const { mod, createClient } = await loadModule();
+
+    await mod.cacheData('k', 'first', 60);
+    // The server freezes: the socket stays open but commands never answer.
+    createdClients[0].get = () => new Promise(() => {});
+
+    const started = Date.now();
+    expect(await mod.getCachedData('k')).toBeNull(); // served from memory (empty), not hanging
+    expect(Date.now() - started).toBeLessThan(2500);
+    expect(createdClients[0].disconnect).toHaveBeenCalled();
+
+    // During the cooldown the frozen client is not used again.
+    const again = Date.now();
+    await mod.getCachedData('k');
+    expect(Date.now() - again).toBeLessThan(100);
+    expect(createClient).toHaveBeenCalledTimes(1);
+  });
+
+  it('in production, refuses locks while Redis is unavailable (no per-instance memory lock)', async () => {
+    process.env.VERCEL = '1';
+    process.env.VERCEL_ENV = 'production';
+    process.env.REDIS_URL = 'redis://example.invalid:6379';
+    connectBehaviours.push('fail');
+    const { mod } = await loadModule();
+
+    expect(await mod.acquireLock('job', 60)).toBe(false);
+  });
+
+  it('in development, uses an in-memory lock when the local Redis is off', async () => {
+    process.env.REDIS_DEV_URL = 'redis://127.0.0.1:1';
+    connectBehaviours.push('fail');
+    const { mod } = await loadModule();
+
+    expect(await mod.acquireLock('job', 60)).toBe(true);
+    expect(await mod.acquireLock('job', 60)).toBe(false);
+    await mod.releaseLock('job');
+    expect(await mod.acquireLock('job', 60)).toBe(true);
+  });
+
+  it('recovers after a runtime error on an established connection', async () => {
+    process.env.REDIS_DEV_URL = 'redis://example.invalid:6379';
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-16T10:00:00Z'));
+    connectBehaviours.push('ok', 'ok');
+    const { mod, createClient } = await loadModule();
+
+    await mod.cacheData('k', 'first', 60);
+    expect(createdClients[0].store.get('k')).toBe(JSON.stringify('first'));
+
+    // The live connection drops.
+    createdClients[0].isReady = false;
+    createdClients[0].handlers.error(new Error('socket closed'));
+    await mod.cacheData('k', 'during-outage', 60);
+    expect(createClient).toHaveBeenCalledTimes(1);
+
+    vi.setSystemTime(new Date('2026-11-16T10:01:00Z'));
+    await mod.cacheData('k', 'after', 60);
+    expect(createClient).toHaveBeenCalledTimes(2);
+    expect(createdClients[1].store.get('k')).toBe(JSON.stringify('after'));
+  });
+});

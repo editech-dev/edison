@@ -1,4 +1,5 @@
-import { getPublicRepositories, getReadmeContent } from '@/app/utils/github';
+import { getPublicRepositories, getRepositoryByName } from '@/app/utils/github';
+import { toRepositoryContext } from '@/app/utils/agent-context';
 import { getViews } from '@/app/utils/redis';
 import fs from 'fs';
 import path from 'path';
@@ -26,10 +27,15 @@ export async function getProjectViews(repoName: string) {
   }
 }
 
-// Helper to check README content
+// README of a PUBLISHED repository only (from the snapshot): never private or unknown repositories, and no
+// extra GitHub call.
 export async function getRepositoryReadme(repoName: string) {
   try {
-    const readme = await getReadmeContent(repoName);
+    const repo = await getRepositoryByName(repoName);
+    if (!repo) {
+      return { repoName, error: "This repository is not part of Edison's published projects." };
+    }
+    const readme = repo[repo.originalLanguage]?.readme ?? repo.en?.readme ?? repo.es?.readme ?? null;
     if (!readme) {
       return { repoName, readmePreview: "No README available for this repository." };
     }
@@ -91,16 +97,25 @@ export const chatbotToolDeclarations: any[] = [
 ];
 
 // Helper to execute tools based on model requests
-export async function executeChatbotTool(name: string, args: any) {
+const repoNameArg = (args: unknown): string => {
+  const value = (args as { repoName?: unknown } | undefined)?.repoName;
+  if (typeof value !== 'string' || value.length === 0 || value.length > 100) {
+    throw new Error('A valid repoName is required.');
+  }
+  return value;
+};
+
+export async function executeChatbotTool(name: string, args: unknown) {
   switch (name) {
     case 'getProfileInfo':
       return await getProfileInfo();
     case 'getGithubRepos':
-      return await getPublicRepositories();
+      // Compact summary (descriptions + short README preview), not the full bilingual READMEs.
+      return { repositories: (await getPublicRepositories()).map(toRepositoryContext) };
     case 'getRepositoryReadme':
-      return await getRepositoryReadme(args.repoName);
+      return await getRepositoryReadme(repoNameArg(args));
     case 'getProjectViews':
-      return await getProjectViews(args.repoName);
+      return await getProjectViews(repoNameArg(args));
     default:
       throw new Error(`Tool ${name} not found`);
   }

@@ -13,8 +13,8 @@ This project features **CyberStack**, an advanced AI Assistant designed to repre
     *   **GitHub**: Fetches real-time project data from `editech-dev/editech-dev`.
     *   **LinkedIn**: Injects detailed verified experience from `src/data/profile.json`.
 *   **Chat Memory**: Full conversation history persistence using Redis.
-*   **AI Fallback**: If Gemini fails, the chat API automatically falls back to **OpenRouter** (with the same Gemini Flash model).
-*   **Dual AI Mode**: Users can switch between **Cloud AI** (Gemini Flash) and **Local AI** (Chrome's built-in Gemini Nano) directly in the chat widget.
+*   **Resilient answers**: The chat retries once on transient Gemini errors and never leaves an empty answer; tool calls (project views, repositories) run between model turns.
+*   **Single model, compact context**: The chat always uses `gemini-flash-lite-latest`. Each message carries a compact portfolio context (descriptions and a short README preview per repository, about 15,000 tokens); full READMEs are fetched on demand by a tool.
 *   **Tool Calling**: The agent can execute function calls to fetch profile data, repository lists, README content, and page view counts in real time.
 
 ### 📄 Interactive CV / Resume
@@ -35,14 +35,15 @@ This project features **CyberStack**, an advanced AI Assistant designed to repre
 ### ⚡ Tech Stack
 *   **Frontend**: Next.js 16 (App Router), React 19, Tailwind CSS v4, Framer Motion.
 *   **Styling**: Tailwind CSS v4 with custom CSS modules, Geist Sans/Mono fonts, forced dark mode.
-*   **AI Core**: Google Gemini Flash Lite (using Google Generative AI SDK `@google/genai`). Optional fallback via OpenRouter.
+*   **AI Core**: Google Gemini through the always-current alias `gemini-flash-lite-latest` (SDK `@google/genai`, API `v1beta`), for both the chat and the repository translations.
 *   **Database & Cache**: Redis (chat logs, GitHub API cache, view counters, CV profile cache) with automatic in-memory fallback.
 *   **PDF Generation**: `@react-pdf/renderer` for server-side professional CV/resume PDF.
 *   **Markdown Rendering**: `react-markdown` + `remark-gfm` for chat message formatting.
 *   **SEO**: Dynamic Sitemap (`sitemap.ts`), Robots.txt (`robots.ts`), JSON-LD Person Schema, Open Graph metadata, canonical URLs.
 *   **Testing**: Vitest + React Testing Library + jsdom.
 *   **Language**: TypeScript 5.
-*   **Package Manager**: pnpm 11.12.0 (pinned via Corepack).
+*   **Package Manager & Runtime**: [Bun](https://bun.sh) 1.4 — installs dependencies, runs scripts and runs Next.js and the Vercel Functions (`bunVersion` in `vercel.json`). New package versions are quarantined for 48 hours (`bunfig.toml`).
+*   **Linting**: ESLint with `eslint-config-next` (`bun run lint`).
 
 ## 🗺️ Page Routes
 
@@ -72,7 +73,7 @@ This endpoint constructs the system prompt dynamically on every request:
 ### 3. Chat API (`src/app/api/chat/route.ts`)
 Handles streaming chat responses with function-calling capabilities:
 *   **Primary**: Google Gemini Flash Lite via `@google/genai` SDK with streaming, tool declarations, and automatic function call execution loops (max 5 iterations).
-*   **Fallback**: If Gemini fails (e.g., missing API key), automatically falls back to OpenRouter with SSE streaming.
+*   **Failure handling**: one retry on 503/429 before the answer starts; if it still fails the API answers `503` with a readable message, and a stream that breaks midway ends with a visible notice.
 *   **Tools**: `getProfileInfo`, `getGithubRepos`, `getRepositoryReadme`, `getProjectViews` — defined in `src/app/utils/chatbot_tools.ts`.
 
 ### 4. Persistent Memory (`src/app/api/log-chat/route.ts`)
@@ -88,12 +89,13 @@ Generates a professionally designed two-column PDF on the server:
 *   Returns PDF as downloadable attachment with language-appropriate filename.
 
 ### 6. Data Caching Layer (`src/app/utils/github.ts`)
-To ensure speed and avoid GitHub API rate limits, the agent's knowledge of your projects is cached.
-*   **Mechanism**: `src/app/utils/redis.ts` handles generic caching with automatic in-memory Map fallback when Redis is unavailable.
-*   **Cache Key**: `github:repos:public:bilingual` stores the filtered, translated repository list (1-hour TTL).
+Visitors never wait for GitHub or Gemini: pages read cached data, and refreshing happens in the background.
+*   **Read path**: `/repositories`, repository pages, the sitemap and `/api/agent-context` read the snapshot `github:repos:public:snapshot` from Redis — even when stale — or, if there is none, the static fallback `src/data/bilingual-repos-fallback.json`. GitHub is only queried (with a 2.5 s timeout) for a single repository that is unknown everywhere.
+*   **Background refresh**: when the snapshot is older than 1 hour, a refresh is scheduled with Next.js `after()`, guarded by a Redis lock. It fetches GitHub, translates only new or changed text and saves a new snapshot. A failed translation is never stored: the previous version is kept and the snapshot is retried in 5 minutes.
 *   **Bilingual Cache**: Per-repo keys `github:repo:bilingual:{name}` store translated descriptions and READMEs (30-day TTL).
 *   **README Filtering**: Only repos with READMEs >= 100 characters are displayed.
 *   **Translation Pipeline**: `src/app/utils/translation.ts` uses Gemini Flash Lite for language detection and translation with exponential backoff retry (up to 3 retries for rate limits).
+*   **Redis resilience**: `src/app/utils/redis.ts` falls back to an in-memory store when Redis is missing or failing, bounds every command to 2 s and retries the connection after a 30 s cooldown.
 
 ### 7. Real-time Analytics (`src/app/api/views/[slug]`)
 Tracks page views for each project repository with deduplicated unique visitor counting.
@@ -113,7 +115,7 @@ src/
 ├── app/
 │   ├── api/
 │   │   ├── agent-context/    # Dynamic context generation (XML + GitHub + Profile)
-│   │   ├── chat/             # Streaming chat with Gemini + OpenRouter fallback + tool calling
+│   │   ├── chat/             # Streaming chat with Gemini (gemini-flash-lite-latest) + tool calling
 │   │   ├── chats/            # Chat history retrieval (admin-protected)
 │   │   │   └── [id]/         # Single chat detail
 │   │   ├── cv-pdf/           # Professional PDF CV generation (@react-pdf/renderer)
@@ -122,7 +124,7 @@ src/
 │   │       └── [slug]/       # View counter (POST increment + GET fetch)
 │   ├── components/
 │   │   ├── Card/             # Glassmorphic card with mouse-tracking gradient (Framer Motion)
-│   │   ├── ChatBot/          # CyberStack chat widget (Cloud/Local AI toggle, streaming, markdown)
+│   │   ├── ChatBot/          # CyberStack chat widget (streaming, markdown)
 │   │   ├── Contact/          # Contact page with social link cards
 │   │   ├── CvPage/           # Interactive bilingual CV + professional PDF component
 │   │   ├── HomePage/         # Landing page layout
@@ -158,9 +160,11 @@ src/
 The project uses **Vitest** with React Testing Library and jsdom for unit and integration tests.
 
 ```bash
-pnpm test          # Run tests in watch mode
-pnpm test:run      # Single run
-pnpm test:coverage # With coverage report
+bun run test          # Run tests in watch mode
+bun run test:run      # Single run
+bun run test:coverage # With coverage report
+bun run lint          # ESLint
+bun run tsc --noEmit  # Type check
 ```
 
 **Test files**:
@@ -170,37 +174,9 @@ pnpm test:coverage # With coverage report
 - `src/app/components/ChatBot/ChatBotComponent.test.tsx`
 - `src/app/components/CvPage/CvClientPage.test.tsx`
 - `src/app/components/Repositories/ViewCounter.test.tsx`
-
-## 🤖 AI Agent Development Workflow
-
-The project uses a multi-agent architecture for development via OpenCode, with 5 specialized subagents and 12 skill packs.
-
-### Subagents
-
-| Agent | Role | Mode |
-|---|---|---|
-| `ui-ux-designer` | Tailwind CSS layouts, Framer Motion animations, responsive design | Read/Write |
-| `a11y-auditor` | WCAG 2.2 Level AA compliance, ARIA, keyboard nav, screen readers | Read/Write |
-| `test-engineer` | Vitest + React Testing Library unit/integration tests | Read/Write |
-| `security-auditor` | Dependency vulnerability auditing (`pnpm audit`) | **ReadOnly** |
-| `git-manager` | Git staging, Conventional Commits generation | Read/Write |
-
-### Skill Packs (12 installed)
-
-| Skill | Source | Purpose |
-|---|---|---|
-| `next-best-practices` | vercel-labs/next-skills | RSC, App Router, data patterns, error handling |
-| `react-best-practices` | vercel-labs/agent-skills | Rendering optimization, bundle, server/client patterns |
-| `composition-patterns` | vercel-labs/agent-skills | Compound components, render props, context, variants |
-| `next-cache-components` | vercel-labs/next-skills | PPR, use cache directive, cacheLife, cacheTag |
-| `tailwind-css-patterns` | giuseppe-trisciuoglio/developer-kit | Responsive design, layout, spacing, typography |
-| `frontend-design` | anthropics/skills | Premium design & aesthetics |
-| `typescript-advanced-types` | wshobson/agents | Generics, conditional types, mapped types |
-| `accessibility` | addyosmani/web-quality-skills | WCAG 2.2 audit patterns |
-| `seo` | addyosmani/web-quality-skills | Meta tags, structured data, sitemap |
-| `next-upgrade` | vercel-labs/next-skills | Next.js version migration guides |
-| `nodejs-best-practices` | sickn33/antigravity-awesome-skills | Async patterns, security, architecture |
-| `nodejs-backend-patterns` | wshobson/agents | Express/Fastify middleware, error handling, auth |
+- `src/app/repositories/[repoName]/page.test.tsx`
+- `src/app/utils/github.test.ts`
+- `src/app/utils/redis.test.ts`
 
 ## 📦 Getting Started
 
@@ -210,13 +186,20 @@ The project uses a multi-agent architecture for development via OpenCode, with 5
     cd edison-dev
     ```
 
-2.  **Enable Corepack and install dependencies** (pnpm only — the project pins `pnpm@11.12.0` via the `packageManager` field):
+2.  **Install dependencies** with [Bun](https://bun.sh) (the project pins `bun@1.4.4` via the `packageManager` field):
     ```bash
-    corepack enable
-    pnpm install
+    bun install --frozen-lockfile
     ```
+    Dependency lifecycle scripts are blocked (`trustedDependencies` is empty) and versions published less than 48 hours ago are rejected (`bunfig.toml`).
 
-3.  **Configure Environment**:
+3.  **Start the local Redis** (Docker) and fill it with synthetic data. Outside production the app always uses this local Redis (`redis://127.0.0.1:6399`) and never the `REDIS_URL` of `.env.local`; only Vercel production (`VERCEL_ENV=production`) reads `REDIS_URL`:
+    ```bash
+    bun run redis:up     # docker compose: Redis 7 on 127.0.0.1:6399 with a persistent volume
+    bun run redis:seed   # synthetic view counters and fake chats (refuses non-local hosts)
+    ```
+    If Docker is not running, the app falls back to an in-memory store.
+
+4.  **Configure Environment**:
     Create a `.env.local` file with:
     ```env
     # Required
@@ -225,18 +208,19 @@ The project uses a multi-agent architecture for development via OpenCode, with 5
     GITHUB_REPO_OWNER=editech-dev
 
     # Optional
-    REDIS_URL=redis://localhost:6379           # Falls back to in-memory store if missing
-    OPENROUTER_API_KEY=your_openrouter_key     # Fallback if Gemini fails
+    GEMINI_API_KEY_DEV=your_dev_gemini_key     # Optional: used instead of GEMINI_API_KEY outside production
+    REDIS_URL=your_production_redis_url        # Only read in Vercel production
+    REDIS_DEV_URL=redis://127.0.0.1:6399       # Optional: another local Redis, or `memory` to disable it
     ADMIN_API_TOKEN=your_admin_token           # Protects /api/chats endpoints
     NEXT_PUBLIC_BASE_URL=https://editech.dev   # Used for sitemap, robots.txt, OG metadata
     ```
 
-4.  **Run Development Server**:
+5.  **Run Development Server**:
     ```bash
-    pnpm dev
+    bun run dev
     ```
 
-5.  **Access the App**:
+6.  **Access the App**:
     Open [http://localhost:3002](http://localhost:3002). The CyberStack chat widget will be available globally.
 
 ## 📊 API Documentation
@@ -245,7 +229,7 @@ The project uses a multi-agent architecture for development via OpenCode, with 5
 
 | Endpoint | Method | Auth | Description |
 |---|---|---|---|
-| `/api/chat` | `POST` | None | Streaming chat with Gemini (primary) or OpenRouter (fallback). Body: `{ messages, systemInstruction }` |
+| `/api/chat` | `POST` | None | Streaming chat with Gemini (`gemini-flash-lite-latest`) and tool calling. Body: `{ messages, systemInstruction }` |
 | `/api/agent-context` | `GET` | None | Returns compiled system prompt with live GitHub data + CV profile injected |
 | `/api/log-chat` | `POST` | None | Persists chat session to Redis. Body: `{ messages, timestamp, chatId? }` |
 | `/api/chats` | `GET` | `Bearer ADMIN_API_TOKEN` | Lists all chat sessions with metadata (id, timestamp, preview) |
@@ -266,41 +250,21 @@ The project uses a multi-agent architecture for development via OpenCode, with 5
 
 ## 🚑 Troubleshooting
 
-### Vercel production build fails with `ERR_PNPM_IGNORED_BUILDS`
+### Migration from pnpm to Bun
 
-**Symptom** (observed 2026-07-19): Preview deployments built successfully, but Production deployments died during dependency installation, before `next build` even started:
+Until November 2026 the project used pnpm 11 through Corepack. The pinned `pnpm@11.12.0` was later retracted as a broken release (`ERR_PNPM_BROKEN_PNPM_RELEASE`), and pnpm 11 had already required an explicit `allowBuilds` list in `pnpm-workspace.yaml` plus `ENABLE_EXPERIMENTAL_COREPACK=1` on Vercel. The project now uses Bun:
 
-```
-[ERR_PNPM_IGNORED_BUILDS] Ignored build scripts: @google/genai@2.12.0, esbuild@0.28.1, protobufjs@7.6.5, sharp@0.34.5
-Run "pnpm approve-builds" to pick which dependencies should be allowed to run scripts.
-Error: Command "pnpm install" exited with 1
-```
+*   `bun.lock` replaces `pnpm-lock.yaml` (migrated with the same resolved versions) and `pnpm-workspace.yaml` is gone.
+*   Install scripts stay blocked: none of the four packages that pnpm used to approve (`@google/genai`, `esbuild`, `protobufjs`, `sharp`) needs its script — Bun installs their platform binaries as optional dependencies.
+*   Corepack is not used with Bun; the `ENABLE_EXPERIMENTAL_COREPACK` variable is no longer needed on Vercel.
 
-**Root cause** — two factors combined:
+### `/repositories` intermittently failed in production
 
-1. **pnpm 11 breaking changes.** The repo pins `packageManager: pnpm@11.12.0`. In pnpm 11, `strictDepBuilds` defaults to `true`: any dependency shipping lifecycle scripts (`preinstall`/`postinstall`/`install`) that has not been explicitly approved or denied makes `pnpm install` exit with code 1. pnpm 11 also **removed** the legacy settings (`onlyBuiltDependencies`, `neverBuiltDependencies`, `ignoredBuiltDependencies`, …) and **no longer reads configuration from `package.json` (`pnpm` field) or `.npmrc`/`.pnpmrc`** (those files are auth/registry-only now). Consequently, former fix attempts — a `pnpm.onlyBuiltDependencies` field, a `.pnpmrc` file, and a `PNPM_ONLY_BUILT_DEPENDENCIES` Vercel env var — were all silently ignored.
-2. **Vercel environment divergence.** `ENABLE_EXPERIMENTAL_COREPACK=1` was configured for the **Production** environment only, so Production resolved the pinned pnpm 11.12.0 through Corepack. Preview had no such variable, so Vercel fell back to pnpm 9.x, which executes dependency build scripts by default — hence "works in Preview, fails in Production".
+**Symptom**: `/repositories` sometimes failed through Cloudflare/Vercel and sometimes worked. Vercel logged `Task timed out after 10 seconds` on `/repositories` and `/api/agent-context`.
 
-**Fix applied**:
+**Root cause**: whenever the 1-hour Redis cache expired, the visitor's request downloaded the repository list and every README from GitHub and translated them sequentially with Gemini (which often answered 503 under load), exceeding the function limit. A single Redis error also disabled Redis for the rest of the instance's life, so every following request rebuilt everything.
 
-1. **`pnpm-workspace.yaml`** (repo root) explicitly approves the four dependencies that ship install scripts, satisfying `strictDepBuilds`:
-    ```yaml
-    allowBuilds:
-      "@google/genai": true
-      esbuild: true
-      protobufjs: true
-      sharp: true
-    ```
-2. **`ENABLE_EXPERIMENTAL_COREPACK=1` enabled for all Vercel environments** (Production, Preview, Development) so every deployment installs with the same pinned pnpm version.
-3. **Removed the dead `PNPM_ONLY_BUILT_DEPENDENCIES` env var** from Vercel (ignored by pnpm 11).
-
-**Rejected alternatives**:
-
-*   `strictDepBuilds: false` — the install passes, but the scripts still do not run, leaving `sharp`/`esbuild` potentially degraded at runtime.
-*   `dangerouslyAllowAllBuilds: true` — works, but disables pnpm 11's supply-chain protection entirely.
-*   Downgrading to pnpm 10 — loses the version pin and security posture for no real gain.
-
-**References**: [pnpm 11 release notes](https://github.com/pnpm/pnpm/releases/tag/v11.0.0) · [pnpm `allowBuilds` setting](https://pnpm.io/settings#allowbuilds) · [pnpm `strictDepBuilds` setting](https://pnpm.io/settings#strictdepbuilds) · [Vercel Corepack support](https://vercel.com/docs/deployments/configure-a-build#corepack)
+**Fix**: see *Data Caching Layer* above — reads come from a (possibly stale) snapshot or the static fallback, the refresh runs in the background with `after()`, and Redis recovers after failures. Unknown repositories now return a real 404.
 
 ## 📄 License
 

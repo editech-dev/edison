@@ -1,15 +1,13 @@
 
 import { NextResponse } from 'next/server';
 import { listChats } from '@/app/utils/redis';
+import { isAdminRequest } from '@/app/utils/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
   try {
-    const adminToken = process.env.ADMIN_API_TOKEN;
-    const authHeader = req.headers.get('authorization');
-    
-    if (adminToken && authHeader !== `Bearer ${adminToken}`) {
+    if (!isAdminRequest(req)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

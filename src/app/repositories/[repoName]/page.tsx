@@ -1,106 +1,57 @@
 import { Navigation } from '@/app/components/Navigation/Navigation';
 import RepositoryDetails from '@/app/components/Repositories/RepositoryDetails';
-import { getPublicRepositories } from '@/app/utils/github';
+import { getPublicRepositories, getRepositoryByName } from '@/app/utils/github';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 
-// Interface para los parámetros RESUELTOS (después del await)
-interface ResolvedRepositoryPageParams {
-  repoName: string;
-}
+// Details come from the cached snapshot (no fetch), so revalidation is declared explicitly.
+export const revalidate = 3600;
 
-// Interface para las PROPS recibidas (params es una Promise)
 interface RepositoryPageProps {
-  // ¡Params ahora es una Promise que resuelve a los parámetros!
-  params: Promise<ResolvedRepositoryPageParams>;
+  params: Promise<{ repoName: string }>;
 }
 
-// --- generateMetadata (Con await params) ---
-// La función ya es async, lo cual es bueno
-export async function generateMetadata({ params: paramsPromise }: RepositoryPageProps): Promise<Metadata> {
-
-  try {
-    // *** PASO CLAVE: Esperar a que la Promise de params se resuelva ***
-    const params = await paramsPromise;
-
-    // Ahora puedes acceder a params.repoName de forma segura
-    const repoName = params.repoName;
-
-    if (typeof repoName !== 'string' || !repoName) {
-      console.error("generateMetadata: repoName is not a valid string or is empty:", repoName);
-      console.error("generateMetadata: Failing resolved params object was:", params);
-      return { title: "Error: Invalid repository name" };
-    }
-
-    return {
-      title: `Repository: ${repoName}`,
-      alternates: {
-        canonical: `/repositories/${repoName}`,
-      },
-    };
-  } catch (error) {
-    console.error("Error resolving params or generating metadata:", error);
-    return { title: "Error generating metadata" };
+export async function generateMetadata({ params }: RepositoryPageProps): Promise<Metadata> {
+  const { repoName } = await params;
+  const repository = await getRepositoryByName(repoName);
+  if (!repository) {
+    return { title: 'Repository not found', robots: { index: false } };
   }
+
+  return {
+    title: `Repository: ${repository.name}`,
+    alternates: {
+      canonical: `/repositories/${repository.name}`,
+    },
+  };
 }
 
 export async function generateStaticParams(): Promise<{ repoName: string }[]> {
   try {
     const repositories = await getPublicRepositories();
-    if (!Array.isArray(repositories)) {
-      console.error("generateStaticParams: getPublicRepositories did not return an array. Received:", repositories);
-      return [];
-    }
-    const validParams = repositories
-      .map((repo) => {
-        if (repo && typeof repo === 'object' && typeof repo.name === 'string' && repo.name.trim() !== '') {
-          return { repoName: repo.name };
-        } else {
-          console.warn("generateStaticParams: Skipping invalid repository object or missing/empty name:", repo);
-          return null;
-        }
-      })
-      .filter((param): param is { repoName: string } => param !== null);
-    return validParams;
+    return repositories
+      .filter((repo) => typeof repo?.name === 'string' && repo.name.trim() !== '')
+      .map((repo) => ({ repoName: repo.name }));
   } catch (error) {
-    console.error("Error occurred in generateStaticParams:", error);
+    console.error('Error occurred in generateStaticParams:', error);
     return [];
   }
 }
 
+export default async function RepositoryPage({ params }: RepositoryPageProps) {
+  const { repoName } = await params;
 
-export default async function RepositoryPage({ params: paramsPromise }: RepositoryPageProps) {
-
-  try {
-     // *** PASO CLAVE: Esperar a que la Promise de params se resuelva ***
-    const params = await paramsPromise;
-
-    // Ahora puedes validar y usar params.repoName
-    if (!params || typeof params.repoName !== 'string' || !params.repoName) {
-      console.error("RepositoryPage - Invalid resolved params:", params);
-      // notFound(); // Lanza un 404
-      return ( // O muestra un error
-        <div className="text-red-500 p-10">
-          Error: Invalid or missing repository name.
-        </div>
-      );
-    }
-
-    const repoName = params.repoName;
-
-    return (
-      <div className="relative pb-16 bg-gradient-to-tl from-black via-zinc-600/20 to-black min-h-screen text-white">
-        < Navigation />
-        <RepositoryDetails repoName={repoName} />
-      </div>
-    );
-  } catch (error) {
-    console.error("Error resolving params or rendering RepositoryPage:", error);
-    // notFound(); // Puedes lanzar 404 en caso de error al resolver params
-     return ( // O mostrar un mensaje de error genérico
-        <div className="text-red-500 p-10">
-          Error loading repository information.
-        </div>
-      );
+  // `getRepositoryByName` is deduplicated with React `cache`, so RepositoryDetails reuses this result.
+  // It returns null only when the repository does not exist (GitHub 404): that is a real 404.
+  // Any other failure throws and is reported as an error, never as "not found".
+  if (!(await getRepositoryByName(repoName))) {
+    notFound();
   }
+
+  return (
+    <div className="relative pb-16 bg-gradient-to-tl from-black via-zinc-600/20 to-black min-h-screen text-white">
+      <Navigation />
+      <RepositoryDetails repoName={repoName} />
+    </div>
+  );
 }

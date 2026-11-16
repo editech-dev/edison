@@ -1,27 +1,18 @@
 
 import { NextResponse } from 'next/server';
 import { getPublicRepositories } from '@/app/utils/github';
+import { buildSystemInstruction, toRepositoryContext } from '@/app/utils/agent-context';
 import fs from 'fs';
 import path from 'path';
 
 export const dynamic = 'force-dynamic'; // Ensure it's not cached at build time
+// Leaves room for the background refresh scheduled with `after()`; the response itself never waits on it.
+export const maxDuration = 60;
 
 export async function GET() {
   try {
-    // 1. Obtener datos de GitHub
-    const rawGithubData = await getPublicRepositories();
-    
-    // Inyectar extractos del README para enriquecer el contexto neuronal
-    const { getReadmeContent } = await import('@/app/utils/github');
-    const githubData = await Promise.all(rawGithubData.map(async (repo) => {
-        const readme = await getReadmeContent(repo.name);
-        // Truncate to first 400 chars to avoid prompt bloat but keep context
-        const readmePreview = readme ? readme.substring(0, 400).replace(/\n/g, ' ') + '...' : 'No description available';
-        return {
-            ...repo,
-            readme_preview: readmePreview
-        };
-    }));
+    // 1. Repositorios desde la caché (nunca espera a GitHub ni a Gemini)
+    const rawGithubData = await getPublicRepositories(true);
 
     // 2. Leer el perfil local (con soporte de Redis y fallback)
     const { getCvProfile } = await import('@/app/utils/redis');
@@ -29,17 +20,15 @@ export async function GET() {
 
     // 3. Leer el prompt XML
     const xmlPath = path.join(process.cwd(), 'src/app/utils/expert_persona.xml');
-    let xmlTemplate = fs.readFileSync(xmlPath, 'utf8');
+    const xmlTemplate = fs.readFileSync(xmlPath, 'utf8');
 
-    // 4. Inyectar contexto en el XML
-    const systemInstruction = xmlTemplate
-      .replace('{{PROFILE_CONTEXT}}', JSON.stringify(profileData, null, 2))
-      .replace('{{GITHUB_CONTEXT}}', JSON.stringify(githubData, null, 2));
+    // 4. Inyectar un contexto compacto (descripciones + extracto del README por repo)
+    const systemInstruction = buildSystemInstruction(xmlTemplate, profileData, rawGithubData);
 
     return NextResponse.json({
       systemInstruction,
       context: {
-        github: githubData,
+        github: rawGithubData.map(toRepositoryContext),
         profile: profileData
       }
     });

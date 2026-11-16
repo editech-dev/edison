@@ -1,9 +1,10 @@
 "use client";
 import React, { useState, useRef, useEffect } from 'react';
-import { FaComment, FaMinus, FaCloud, FaMicrochip } from 'react-icons/fa';
+import { FaComment, FaMinus, FaCloud } from 'react-icons/fa';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { CHAT_UNAVAILABLE_MESSAGE, STREAM_ERROR_NOTICE } from '@/app/utils/chat-messages';
 
 // --- Interfaces ---
 interface Message {
@@ -24,10 +25,6 @@ export default function ChatBotComponent() {
   const [isLoading, setIsLoading] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // --- Local AI State & Session References ---
-  const [isLocalSupported, setIsLocalSupported] = useState(false);
-  const [activeModel, setActiveModel] = useState<'cloud' | 'local'>('cloud');
-  const localSessionRef = useRef<any>(null);
 
   // --- Load agent context on mount ---
   useEffect(() => {
@@ -52,70 +49,6 @@ export default function ChatBotComponent() {
     loadContext();
   }, []);
 
-  // --- Check for Local Gemini Nano support on mount ---
-  useEffect(() => {
-    const checkLocalAI = async () => {
-      try {
-        const ai = typeof window !== 'undefined' ? (window as any).ai : undefined;
-        if (ai?.languageModel) {
-          const capabilities = await ai.languageModel.capabilities();
-          if (capabilities && capabilities.available !== 'no') {
-            setIsLocalSupported(true);
-          }
-        }
-      } catch (error) {
-        console.warn("Chrome Local AI check failed or unsupported:", error);
-      }
-    };
-    checkLocalAI();
-  }, []);
-
-  // --- Manage local AI session lifecycle ---
-  useEffect(() => {
-    const initSession = async () => {
-      const ai = typeof window !== 'undefined' ? (window as any).ai : undefined;
-      if (activeModel === 'local' && initialPrompt.length > 0 && ai?.languageModel) {
-        try {
-          if (localSessionRef.current) {
-            localSessionRef.current.destroy();
-            localSessionRef.current = null;
-          }
-          const systemInstruction = initialPrompt[0].text;
-          const session = await ai.languageModel.create({
-            systemPrompt: systemInstruction
-          });
-          localSessionRef.current = session;
-        } catch (error) {
-          console.error("Failed to initialize local AI session:", error);
-          setActiveModel('cloud');
-        }
-      }
-    };
-
-    if (activeModel === 'local') {
-      initSession();
-    } else {
-      if (localSessionRef.current) {
-        try {
-          localSessionRef.current.destroy();
-        } catch (e) {
-          console.error("Error destroying session:", e);
-        }
-        localSessionRef.current = null;
-      }
-    }
-
-    return () => {
-      if (localSessionRef.current) {
-        try {
-          localSessionRef.current.destroy();
-        } catch (e) {
-          console.error("Error destroying session on unmount:", e);
-        }
-        localSessionRef.current = null;
-      }
-    };
-  }, [activeModel, initialPrompt]);
 
   // --- Textarea auto-resize ---
   useEffect(() => {
@@ -161,89 +94,66 @@ export default function ChatBotComponent() {
       const systemInstruction = initialPrompt[0].text;
       let assistantResponse = '';
 
-      if (activeModel === 'local') {
-        const ai = typeof window !== 'undefined' ? (window as any).ai : undefined;
-        if (!localSessionRef.current) {
-          if (ai?.languageModel) {
-            const session = await ai.languageModel.create({
-              systemPrompt: systemInstruction
+      // Cloud model (gemini-flash-lite-latest) through /api/chat.
+      const streamFromCloud = async (): Promise<string> => {
+          const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+               messages: currentMessages,
+               systemInstruction: systemInstruction
+            })
+          });
+
+          if (!response.ok) {
+             const errText = await response.text();
+             let serverMessage = '';
+             try {
+               serverMessage = JSON.parse(errText).error ?? '';
+             } catch {
+               serverMessage = errText;
+             }
+             throw new Error(serverMessage || CHAT_UNAVAILABLE_MESSAGE);
+          }
+
+          const reader = response.body?.getReader();
+          const decoder = new TextDecoder();
+          if (!reader) {
+            throw new Error("No reader available on response body.");
+          }
+
+          setMessages(prev => {
+            const updated = [...prev];
+            const lastIndex = updated.length - 1;
+            if (updated[lastIndex].content === '...') {
+              updated[lastIndex] = { role: 'assistant', content: '' };
+            }
+            return updated;
+          });
+
+          let accumulatedResponse = '';
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value, { stream: true });
+            accumulatedResponse += chunk;
+
+            setMessages(prev => {
+              const updated = [...prev];
+              const lastIndex = updated.length - 1;
+              updated[lastIndex] = { role: 'assistant', content: accumulatedResponse };
+              return updated;
             });
-            localSessionRef.current = session;
-          } else {
-            throw new Error("Local AI mode is not supported in this browser.");
           }
-        }
-
-        const stream = localSessionRef.current.promptStreaming(newUserMessage.content);
         
-        setMessages(prev => {
-          const updated = [...prev];
-          const lastIndex = updated.length - 1;
-          if (updated[lastIndex].content === '...') {
-            updated[lastIndex] = { role: 'assistant', content: '' };
+          if (!accumulatedResponse.trim()) {
+            throw new Error(CHAT_UNAVAILABLE_MESSAGE);
           }
-          return updated;
-        });
+          return accumulatedResponse;
+      };
 
-        let accumulatedLocal = '';
-        for await (const chunk of stream) {
-          accumulatedLocal = chunk;
-          setMessages(prev => {
-            const updated = [...prev];
-            const lastIndex = updated.length - 1;
-            updated[lastIndex] = { role: 'assistant', content: accumulatedLocal };
-            return updated;
-          });
-        }
-        assistantResponse = accumulatedLocal;
-      } else {
-        const response = await fetch('/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-             messages: currentMessages,
-             systemInstruction: systemInstruction
-          })
-        });
-
-        if (!response.ok) {
-           const errText = await response.text();
-           throw new Error(errText || `Server error: ${response.status}`);
-        }
-
-        const reader = response.body?.getReader();
-        const decoder = new TextDecoder();
-        if (!reader) {
-          throw new Error("No reader available on response body.");
-        }
-
-        setMessages(prev => {
-          const updated = [...prev];
-          const lastIndex = updated.length - 1;
-          if (updated[lastIndex].content === '...') {
-            updated[lastIndex] = { role: 'assistant', content: '' };
-          }
-          return updated;
-        });
-
-        let accumulatedResponse = '';
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          const chunk = decoder.decode(value, { stream: true });
-          accumulatedResponse += chunk;
-
-          setMessages(prev => {
-            const updated = [...prev];
-            const lastIndex = updated.length - 1;
-            updated[lastIndex] = { role: 'assistant', content: accumulatedResponse };
-            return updated;
-          });
-        }
-        
-        assistantResponse = accumulatedResponse;
-      }
+      assistantResponse = await streamFromCloud();
 
       setMessages(prev => {
         const updatedMessages = [...prev];
@@ -261,8 +171,14 @@ export default function ChatBotComponent() {
       console.error('Chat Error:', error);
       setMessages(prev => {
         const updated = [...prev];
-        if (updated[updated.length - 1].content === '...') {
-          updated[updated.length - 1].content = `Error: ${error.message}`;
+        const last = updated[updated.length - 1];
+        if (last?.role === 'assistant') {
+          // Never leave an empty bubble: replace the placeholder, or flag a partial answer.
+          const partial = last.content !== '...' && last.content.trim() !== '' && last.content !== 'Initializing system...';
+          updated[updated.length - 1] = {
+            ...last,
+            content: partial ? `${last.content}${STREAM_ERROR_NOTICE}` : `Error: ${error?.message || CHAT_UNAVAILABLE_MESSAGE}`,
+          };
         }
         return updated;
       });
@@ -299,11 +215,7 @@ export default function ChatBotComponent() {
             transition={{ duration: 0.25, ease: "easeOut" }}
             role="dialog"
             aria-label="Chat assistant"
-            className={`w-[360px] md:w-[400px] h-[500px] rounded-2xl border bg-zinc-950/90 backdrop-blur-md overflow-hidden flex flex-col transition-[border-color,box-shadow] duration-300 ${
-              activeModel === 'local'
-                ? 'border-emerald-500/30 shadow-[0_0_30px_rgba(16,185,129,0.18)]'
-                : 'border-green-500/30 shadow-[0_0_30px_rgba(34,197,94,0.18)]'
-            }`}
+            className="w-[360px] md:w-[400px] h-[500px] rounded-2xl border bg-zinc-950/90 backdrop-blur-md overflow-hidden flex flex-col transition-[border-color,box-shadow] duration-300 border-green-500/30 shadow-[0_0_30px_rgba(34,197,94,0.18)]"
           >
             {/* Header */}
             <div className="flex flex-col border-b border-zinc-800/80 bg-zinc-900/40 p-4 gap-3">
@@ -311,12 +223,8 @@ export default function ChatBotComponent() {
                 <div className="flex items-center gap-2">
                   {/* Glowing active model status indicator */}
                   <span className="relative flex h-2 w-2">
-                    <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
-                      activeModel === 'local' ? 'bg-emerald-400' : 'bg-green-400'
-                    }`}></span>
-                    <span className={`relative inline-flex rounded-full h-2 w-2 ${
-                      activeModel === 'local' ? 'bg-emerald-500' : 'bg-green-500'
-                    }`}></span>
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 bg-green-400"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
                   </span>
                   <h5 className="font-semibold text-green-400 text-sm tracking-wide">CyberStack Assistant</h5>
                 </div>
@@ -330,55 +238,12 @@ export default function ChatBotComponent() {
                 </button>
               </div>
 
-              {/* Model selection toggle or active model badge */}
+              {/* Active model badge */}
               <div className="flex justify-start">
-                {isLocalSupported ? (
-                  <div 
-                    className="flex bg-zinc-950/60 p-0.5 rounded-lg border border-zinc-850 text-[11px] relative w-full" 
-                    role="radiogroup" 
-                    aria-label="Model selection"
-                  >
-                    <button
-                      onClick={() => setActiveModel('cloud')}
-                      role="radio"
-                      aria-checked={activeModel === 'cloud'}
-                      className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md font-medium transition-colors z-10 relative focus:outline-none focus-visible:ring-1 focus-visible:ring-green-400 cursor-pointer ${
-                        activeModel === 'cloud' ? 'text-green-400 font-semibold' : 'text-zinc-400 hover:text-zinc-200'
-                      }`}
-                    >
-                      <FaCloud className="w-3.5 h-3.5" aria-hidden="true" />
-                      <span>Cloud AI</span>
-                    </button>
-                    <button
-                      onClick={() => setActiveModel('local')}
-                      role="radio"
-                      aria-checked={activeModel === 'local'}
-                      className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-md font-medium transition-colors z-10 relative focus:outline-none focus-visible:ring-1 focus-visible:ring-green-400 cursor-pointer ${
-                        activeModel === 'local' ? 'text-green-400 font-semibold' : 'text-zinc-400 hover:text-zinc-200'
-                      }`}
-                    >
-                      <FaMicrochip className="w-3.5 h-3.5" aria-hidden="true" />
-                      <span>Local AI</span>
-                    </button>
-                    {/* Sliding background highlight */}
-                    <motion.div
-                      className="absolute top-[2px] bottom-[2px] rounded-md bg-green-500/10 border border-green-500/25 shadow-[0_0_8px_rgba(34,197,94,0.1)]"
-                      layoutId="activeModelIndicator"
-                      animate={{
-                        left: activeModel === 'cloud' ? '2px' : 'calc(50% + 1px)'
-                      }}
-                      transition={{ type: "spring", stiffness: 350, damping: 30 }}
-                      style={{
-                        width: 'calc(50% - 3px)'
-                      }}
-                    />
-                  </div>
-                ) : (
                   <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-900/60 border border-zinc-800 text-[11px] text-zinc-400">
                     <FaCloud className="w-3 h-3 text-zinc-500" aria-hidden="true" />
                     <span>Cloud Mode</span>
                   </div>
-                )}
               </div>
             </div>
 
@@ -391,7 +256,7 @@ export default function ChatBotComponent() {
             >
               {messages.length === 0 && (
                 <div className="text-zinc-500 text-xs italic text-center mt-8">
-                  Ask me anything about Edison's background, projects, or expertise.
+                  Ask me anything about Edison&apos;s background, projects, or expertise.
                 </div>
               )}
               {messages.map((msg, index) => (

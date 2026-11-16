@@ -4,7 +4,8 @@ import RepositoriesListClient from './RepositoriesListClient';
 
 export default async function RepositoriesList() {
   // Fetch bilingual repositories and views in parallel on the server
-  const repositories = await getPublicRepositories();
+  // This route declares maxDuration = 60, so it may schedule the background refresh.
+  const repositories = await getPublicRepositories(true);
   const slugs = repositories.map(repo => repo.name);
   const viewsData = await getMultipleViews(slugs);
 

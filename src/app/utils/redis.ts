@@ -1,38 +1,111 @@
 import { createClient } from 'redis';
 import fs from 'fs';
 import path from 'path';
+import { isProduction, resolveRedisUrl } from './runtime-env';
 
-// Singleton Redis Client
-const client = createClient({
-    url: process.env.REDIS_URL || 'redis://localhost:6379'
-});
+// Production reads REDIS_URL; development always uses the local Docker Redis (never production), see
+// runtime-env.ts. Without a URL (REDIS_DEV_URL=memory) the in-memory store is used.
+const REDIS_URL = resolveRedisUrl();
+const IS_PRODUCTION = isProduction();
+// Never make a request wait longer than this for a connection.
+const CONNECT_TIMEOUT_MS = 2000;
+// A command slower than this counts as an outage (e.g. a frozen server with the socket still open).
+const COMMAND_TIMEOUT_MS = 2000;
+// After a failure, serve from memory for this long before trying Redis again.
+const RETRY_COOLDOWN_MS = 30_000;
 
-let redisConnectionFailed = false;
+const newClient = () =>
+    createClient({
+        url: REDIS_URL,
+        // Fail fast instead of queueing commands while disconnected.
+        disableOfflineQueue: true,
+        socket: { connectTimeout: CONNECT_TIMEOUT_MS, reconnectStrategy: false },
+    });
+type RedisClient = ReturnType<typeof newClient>;
 
-client.on('error', (err) => {
-    console.error('Redis Client Error:', err.message || err);
-    redisConnectionFailed = true;
-});
+let client: RedisClient | null = null;
+let connecting: Promise<void> | null = null;
+let retryAfter = 0;
 
-const getClient = async () => {
-    if (redisConnectionFailed) {
-        return null;
-    }
-    try {
-        if (!client.isOpen) {
-            // Set a connection timeout of 2 seconds so local development doesn't hang
-            const connectPromise = client.connect();
-            const timeoutPromise = new Promise((_, reject) => 
-                setTimeout(() => reject(new Error("Redis connection timeout")), 2000)
-            );
-            await Promise.race([connectPromise, timeoutPromise]);
+const markUnavailable = (reason: unknown) => {
+    const message = reason instanceof Error ? reason.message : String(reason);
+    console.warn(`Redis unavailable (${message}). Using the in-memory store for ${RETRY_COOLDOWN_MS / 1000}s.`);
+    retryAfter = Date.now() + RETRY_COOLDOWN_MS;
+};
+
+const withTimeout = <T>(promise: Promise<T>, ms: number, label = 'Redis connection timeout'): Promise<T> => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(label)), ms);
+    });
+    return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+};
+
+const discard = (stale: RedisClient) => {
+    if (client === stale) client = null;
+    stale.disconnect().catch(() => {});
+};
+
+const createRedisClient = (): RedisClient => {
+    const created = newClient();
+    created.on('error', (err) => {
+        console.error('Redis Client Error:', err?.message || err);
+        if (client === created) {
+            markUnavailable(err);
+            discard(created);
         }
-        return client;
-    } catch (err: any) {
-        console.warn("Redis offline. Falling back to in-memory mock database.", err.message || err);
-        redisConnectionFailed = true;
-        return null;
+    });
+    return created;
+};
+
+// Every command of the returned client is bounded by COMMAND_TIMEOUT_MS. A timeout discards the
+// client and starts the cooldown, so a frozen server never makes requests wait.
+const guarded = new WeakMap<RedisClient, RedisClient>();
+const guard = (target: RedisClient): RedisClient => {
+    const existing = guarded.get(target);
+    if (existing) return existing;
+    const proxy = new Proxy(target, {
+        get(obj, prop, receiver) {
+            const value = Reflect.get(obj, prop, receiver);
+            if (typeof value !== 'function') return value;
+            return (...args: unknown[]) => {
+                const result = value.apply(obj, args);
+                if (!(result instanceof Promise)) return result;
+                return withTimeout(result, COMMAND_TIMEOUT_MS, 'Redis command timeout').catch((err: unknown) => {
+                    if (err instanceof Error && err.message === 'Redis command timeout' && client === obj) {
+                        markUnavailable(err);
+                        discard(obj);
+                    }
+                    throw err;
+                });
+            };
+        },
+    });
+    guarded.set(target, proxy);
+    return proxy;
+};
+
+// Returns a ready client, or null when Redis is not configured or currently unavailable.
+// A failure is never permanent: after RETRY_COOLDOWN_MS a new connection is attempted.
+const getClient = async (): Promise<RedisClient | null> => {
+    if (!REDIS_URL) return null;
+    if (client?.isReady) return guard(client);
+    if (Date.now() < retryAfter) return null;
+
+    if (!connecting) {
+        const candidate = createRedisClient();
+        client = candidate;
+        connecting = withTimeout(candidate.connect().then(() => undefined), CONNECT_TIMEOUT_MS)
+            .catch((err) => {
+                markUnavailable(err);
+                discard(candidate);
+            })
+            .finally(() => {
+                connecting = null;
+            });
     }
+    await connecting;
+    return client?.isReady ? guard(client) : null;
 };
 
 // --- In-Memory Mock Fallback Store ---
@@ -163,13 +236,16 @@ export const getCvProfile = async (): Promise<any> => {
 };
 
 // --- Generic Caching Utils ---
-export const cacheData = async (key: string, data: any, ttlSeconds: number) => {
+// Without ttlSeconds the value never expires (it is replaced when its content changes).
+export const cacheData = async (key: string, data: any, ttlSeconds?: number) => {
     const redis = await getClient();
     if (redis) {
         try {
-            await redis.set(key, JSON.stringify(data), {
-                EX: ttlSeconds
-            });
+            await redis.set(
+                key,
+                JSON.stringify(data),
+                ttlSeconds ? { expiration: { type: 'EX', value: ttlSeconds } } : undefined
+            );
             return;
         } catch (error) {
             console.error(`[Redis] Error caching data for ${key}:`, error);
@@ -178,6 +254,17 @@ export const cacheData = async (key: string, data: any, ttlSeconds: number) => {
     
     // In-memory fallback
     memoryStore.set(key, JSON.stringify(data));
+};
+
+export const deleteCachedData = async (key: string) => {
+    memoryStore.delete(key);
+    const redis = await getClient();
+    if (!redis) return;
+    try {
+        await redis.del(key);
+    } catch (error) {
+        console.error(`[Redis] Error deleting ${key}:`, error);
+    }
 };
 
 export const getCachedData = async (key: string) => {
@@ -197,6 +284,42 @@ export const getCachedData = async (key: string) => {
     // In-memory fallback
     const data = memoryStore.get(key);
     return data ? JSON.parse(data) : null;
+};
+
+// --- Short-lived locks (avoid running the same background job twice at once) ---
+const memoryLocks = new Map<string, number>();
+
+// In production the lock must be shared: if Redis is unavailable the lock is refused (an in-memory lock
+// would let every serverless instance run the job at once). In development (a single local process) the
+// in-memory lock is fine when the local Redis is off.
+export const acquireLock = async (key: string, ttlSeconds: number): Promise<boolean> => {
+    const redis = await getClient();
+    if (redis) {
+        try {
+            return (await redis.set(key, '1', { condition: 'NX', expiration: { type: 'EX', value: ttlSeconds } })) === 'OK';
+        } catch (error) {
+            console.error(`[Redis] Error acquiring lock ${key}:`, error);
+            return false;
+        }
+    }
+    if (IS_PRODUCTION) return false;
+
+    const now = Date.now();
+    const lockedUntil = memoryLocks.get(key);
+    if (lockedUntil && lockedUntil > now) return false;
+    memoryLocks.set(key, now + ttlSeconds * 1000);
+    return true;
+};
+
+export const releaseLock = async (key: string): Promise<void> => {
+    memoryLocks.delete(key);
+    const redis = await getClient();
+    if (!redis) return;
+    try {
+        await redis.del(key);
+    } catch (error) {
+        console.error(`[Redis] Error releasing lock ${key}:`, error);
+    }
 };
 
 // --- View Counter Utils ---

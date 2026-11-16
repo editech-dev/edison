@@ -4,7 +4,8 @@ const geminiApiKey = process.env.GEMINI_API_KEY;
 
 let ai: GoogleGenAI | null = null;
 if (geminiApiKey) {
-  ai = new GoogleGenAI({ apiKey: geminiApiKey });
+  // The `-latest` model aliases are served by v1beta; SDK 3 defaults to v1.
+  ai = new GoogleGenAI({ apiKey: geminiApiKey, httpOptions: { apiVersion: 'v1beta' } });
 } else {
   console.warn("GEMINI_API_KEY is not defined in translation utility");
 }

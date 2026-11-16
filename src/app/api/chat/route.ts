@@ -18,7 +18,8 @@ export async function POST(req: Request) {
     try {
       if (!geminiApiKey) throw new Error("GEMINI_API_KEY is not defined");
 
-      const ai = new GoogleGenAI({ apiKey: geminiApiKey });
+      // The `-latest` model aliases are served by v1beta; SDK 3 defaults to v1.
+      const ai = new GoogleGenAI({ apiKey: geminiApiKey, httpOptions: { apiVersion: 'v1beta' } });
       
       // Convert messages to Google Gen AI multi-turn contents format
       const contents: any[] = messages.map(msg => ({

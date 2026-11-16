@@ -1,6 +1,7 @@
 
 import { NextResponse } from 'next/server';
 import { getPublicRepositories } from '@/app/utils/github';
+import { buildSystemInstruction, toRepositoryContext } from '@/app/utils/agent-context';
 import fs from 'fs';
 import path from 'path';
 
@@ -13,17 +14,6 @@ export async function GET() {
     // 1. Repositorios desde la caché (nunca espera a GitHub ni a Gemini)
     const rawGithubData = await getPublicRepositories(true);
 
-    // Extracto del README original para enriquecer el contexto, sin llamadas extra a GitHub
-    const githubData = rawGithubData.map((repo) => {
-        const readme = repo[repo.originalLanguage]?.readme ?? repo.en?.readme ?? repo.es?.readme ?? null;
-        // Truncate to first 400 chars to avoid prompt bloat but keep context
-        const readmePreview = readme ? readme.substring(0, 400).replace(/\n/g, ' ') + '...' : 'No description available';
-        return {
-            ...repo,
-            readme_preview: readmePreview
-        };
-    });
-
     // 2. Leer el perfil local (con soporte de Redis y fallback)
     const { getCvProfile } = await import('@/app/utils/redis');
     const profileData = await getCvProfile();
@@ -32,15 +22,13 @@ export async function GET() {
     const xmlPath = path.join(process.cwd(), 'src/app/utils/expert_persona.xml');
     const xmlTemplate = fs.readFileSync(xmlPath, 'utf8');
 
-    // 4. Inyectar contexto en el XML
-    const systemInstruction = xmlTemplate
-      .replace('{{PROFILE_CONTEXT}}', JSON.stringify(profileData, null, 2))
-      .replace('{{GITHUB_CONTEXT}}', JSON.stringify(githubData, null, 2));
+    // 4. Inyectar un contexto compacto (descripciones + extracto del README por repo)
+    const systemInstruction = buildSystemInstruction(xmlTemplate, profileData, rawGithubData);
 
     return NextResponse.json({
       systemInstruction,
       context: {
-        github: githubData,
+        github: rawGithubData.map(toRepositoryContext),
         profile: profileData
       }
     });

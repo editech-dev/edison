@@ -171,37 +171,6 @@ pnpm test:coverage # With coverage report
 - `src/app/components/CvPage/CvClientPage.test.tsx`
 - `src/app/components/Repositories/ViewCounter.test.tsx`
 
-## 🤖 AI Agent Development Workflow
-
-The project uses a multi-agent architecture for development via OpenCode, with 5 specialized subagents and 12 skill packs.
-
-### Subagents
-
-| Agent | Role | Mode |
-|---|---|---|
-| `ui-ux-designer` | Tailwind CSS layouts, Framer Motion animations, responsive design | Read/Write |
-| `a11y-auditor` | WCAG 2.2 Level AA compliance, ARIA, keyboard nav, screen readers | Read/Write |
-| `test-engineer` | Vitest + React Testing Library unit/integration tests | Read/Write |
-| `security-auditor` | Dependency vulnerability auditing (`pnpm audit`) | **ReadOnly** |
-| `git-manager` | Git staging, Conventional Commits generation | Read/Write |
-
-### Skill Packs (12 installed)
-
-| Skill | Source | Purpose |
-|---|---|---|
-| `next-best-practices` | vercel-labs/next-skills | RSC, App Router, data patterns, error handling |
-| `react-best-practices` | vercel-labs/agent-skills | Rendering optimization, bundle, server/client patterns |
-| `composition-patterns` | vercel-labs/agent-skills | Compound components, render props, context, variants |
-| `next-cache-components` | vercel-labs/next-skills | PPR, use cache directive, cacheLife, cacheTag |
-| `tailwind-css-patterns` | giuseppe-trisciuoglio/developer-kit | Responsive design, layout, spacing, typography |
-| `frontend-design` | anthropics/skills | Premium design & aesthetics |
-| `typescript-advanced-types` | wshobson/agents | Generics, conditional types, mapped types |
-| `accessibility` | addyosmani/web-quality-skills | WCAG 2.2 audit patterns |
-| `seo` | addyosmani/web-quality-skills | Meta tags, structured data, sitemap |
-| `next-upgrade` | vercel-labs/next-skills | Next.js version migration guides |
-| `nodejs-best-practices` | sickn33/antigravity-awesome-skills | Async patterns, security, architecture |
-| `nodejs-backend-patterns` | wshobson/agents | Express/Fastify middleware, error handling, auth |
-
 ## 📦 Getting Started
 
 1.  **Clone the repository**:

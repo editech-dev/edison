@@ -134,6 +134,24 @@ describe('redis client resilience', () => {
     expect(createClient).toHaveBeenCalledTimes(1);
   });
 
+  it('refuses locks while a configured Redis is unavailable (no per-instance memory lock)', async () => {
+    process.env.REDIS_URL = 'redis://example.invalid:6379';
+    connectBehaviours.push('fail');
+    const { mod } = await loadModule();
+
+    expect(await mod.acquireLock('job', 60)).toBe(false);
+  });
+
+  it('uses an in-memory lock when Redis is not configured', async () => {
+    delete process.env.REDIS_URL;
+    const { mod } = await loadModule();
+
+    expect(await mod.acquireLock('job', 60)).toBe(true);
+    expect(await mod.acquireLock('job', 60)).toBe(false);
+    await mod.releaseLock('job');
+    expect(await mod.acquireLock('job', 60)).toBe(true);
+  });
+
   it('recovers after a runtime error on an established connection', async () => {
     process.env.REDIS_URL = 'redis://example.invalid:6379';
     vi.useFakeTimers({ toFake: ['Date'] });

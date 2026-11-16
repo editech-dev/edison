@@ -272,6 +272,9 @@ export const getCachedData = async (key: string) => {
 // --- Short-lived locks (avoid running the same background job twice at once) ---
 const memoryLocks = new Map<string, number>();
 
+// With REDIS_URL configured, the lock must be shared: if Redis is unavailable the lock is refused
+// (an in-memory lock would let every serverless instance run the job at once). The in-memory lock is
+// only used when Redis is not configured at all (local development, tests).
 export const acquireLock = async (key: string, ttlSeconds: number): Promise<boolean> => {
     const redis = await getClient();
     if (redis) {
@@ -279,8 +282,10 @@ export const acquireLock = async (key: string, ttlSeconds: number): Promise<bool
             return (await redis.set(key, '1', { condition: 'NX', expiration: { type: 'EX', value: ttlSeconds } })) === 'OK';
         } catch (error) {
             console.error(`[Redis] Error acquiring lock ${key}:`, error);
+            return false;
         }
     }
+    if (REDIS_URL) return false;
 
     const now = Date.now();
     const lockedUntil = memoryLocks.get(key);

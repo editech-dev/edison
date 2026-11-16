@@ -9,8 +9,9 @@
 //   previous version is kept and the snapshot is marked incomplete so it is retried later.
 import { cache } from 'react';
 import { after } from 'next/server';
-import { getCachedData, cacheData, acquireLock, releaseLock } from '@/app/utils/redis';
+import { getCachedData, cacheData, deleteCachedData, acquireLock, releaseLock } from '@/app/utils/redis';
 import fs from 'fs';
+import { createHash } from 'crypto';
 import path from 'path';
 import { detectLanguage, translateText } from './translation';
 
@@ -20,10 +21,17 @@ const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const REPO_OWNER = process.env.GITHUB_REPO_OWNER;
 
 const SNAPSHOT_KEY = 'github:repos:public:snapshot';
-const SNAPSHOT_TTL_SECONDS = 30 * 24 * 60 * 60; // kept long: a stale snapshot beats a slow page
-const REPO_CACHE_TTL_SECONDS = 30 * 24 * 60 * 60;
+// Snapshot and translations never expire by time: a stale snapshot beats a slow page, and a translation is
+// only replaced when the original text changes (so tokens are never spent twice on the same text).
 const FRESH_FOR_MS = 60 * 60 * 1000; // same freshness as before: 1 hour
-const INCOMPLETE_RETRY_MS = 5 * 60 * 1000; // retry pending translations every 5 minutes
+const INCOMPLETE_RETRY_MS = 5 * 60 * 1000; // pending translations that only lacked budget/time
+// Translation failures per repository and text version: wait 5 min, 1 h, 24 h; give up after 4 attempts
+// until the original text changes. Never retried in a loop.
+const TRANSLATION_RETRY_DELAYS_MS = [5 * 60 * 1000, 60 * 60 * 1000, 24 * 60 * 60 * 1000];
+const MAX_TRANSLATION_ATTEMPTS = TRANSLATION_RETRY_DELAYS_MS.length + 1;
+// New translations per refresh (cache hits are free and not counted).
+const MAX_TRANSLATIONS_PER_REFRESH = 5;
+const FAILURE_KEY_PREFIX = 'github:translation-failure:';
 const REFRESH_LOCK_KEY = 'github:repos:refresh-lock';
 const REFRESH_LOCK_TTL_SECONDS = 120;
 // Stop translating and save progress well before the 60 s maxDuration of the routes that refresh
@@ -57,15 +65,29 @@ export interface BilingualContent {
 export interface BilingualRepository extends GitHubRepository {
   originalLanguage: 'es' | 'en';
   languageChangeNotified?: boolean;
+  /** false for a placeholder that copies the original text in both languages (never a real translation). */
+  translated?: boolean;
   es: BilingualContent;
   en: BilingualContent;
 }
 
 export interface RepositoriesSnapshot {
   generatedAt: number;
+  /** false while some translation is still pending a retry. */
   complete: boolean;
+  /** When the next pending translation may be retried (absent when nothing is pending). */
+  retryAt?: number;
   repos: BilingualRepository[];
 }
+
+interface TranslationFailure {
+  hash: string;
+  attempts: number;
+  nextRetryAt: number;
+}
+
+export const textHash = (description: string | null, readme: string | null) =>
+  createHash('sha256').update(`${description ?? ''}\n\n${readme ?? ''}`).digest('hex');
 
 // --- Headers Comunes ---
 const commonHeaders: HeadersInit = {
@@ -152,12 +174,15 @@ const untranslated = (repo: GitHubRepository, readme: string | null): BilingualR
   updated_at: repo.updated_at,
   description: repo.description,
   originalLanguage: 'en',
+  translated: false,
   es: { description: repo.description, readme },
   en: { description: repo.description, readme },
 });
 
 // --- Translation + per-repository cache (background only) ---
-// Throws when Gemini fails, so nothing half-translated is ever stored.
+// Returns the bilingual repository and whether Gemini was called. Returns null when a translation is
+// needed but not allowed in this run (budget). Throws when Gemini fails, so nothing half-translated is
+// ever stored.
 export async function processBilingualRepository(
   repoId: number,
   repoName: string,
@@ -166,8 +191,9 @@ export async function processBilingualRepository(
   stars: number,
   updatedAt: string,
   freshDescription: string | null,
-  freshReadme: string | null
-): Promise<BilingualRepository> {
+  freshReadme: string | null,
+  { allowTranslation = true }: { allowTranslation?: boolean } = {}
+): Promise<{ repo: BilingualRepository; translated: boolean } | null> {
   const cacheKey = `github:repo:bilingual:${repoName}`;
   const cached: BilingualRepository | null = await getCachedData(cacheKey);
 
@@ -193,24 +219,25 @@ export async function processBilingualRepository(
     ) {
       const refreshed = { ...cached, ...metadata };
       if (cached.stargazers_count !== stars || cached.updated_at !== updatedAt) {
-        await cacheData(cacheKey, refreshed, REPO_CACHE_TTL_SECONDS);
+        await cacheData(cacheKey, refreshed);
       }
-      return refreshed;
+      return { repo: refreshed, translated: false };
     }
   }
 
   // 2. Same text as the static pre-translated fallback.
   const localFallback = loadFallbackMap()[repoName];
-  if (!cached && localFallback) {
+  if (!cached && localFallback && localFallback.translated !== false) {
     const origContent = localFallback[localFallback.originalLanguage];
     if (origContent.description === freshDescription && origContent.readme === freshReadme) {
       const fromStatic = { ...fromFallback(localFallback), ...metadata };
-      await cacheData(cacheKey, fromStatic, REPO_CACHE_TTL_SECONDS);
-      return fromStatic;
+      await cacheData(cacheKey, fromStatic);
+      return { repo: fromStatic, translated: false };
     }
   }
 
-  // 3. New or changed text: detect language and translate.
+  // 3. New or changed text: detect language and translate (only if this run still has budget).
+  if (!allowTranslation) return null;
   console.log(`[Github bilingual cache] Translating ${repoName}...`);
   const detectedLang = await detectLanguage(combinedContentForDetection);
   const oppositeLang = detectedLang === 'es' ? 'en' : 'es';
@@ -232,18 +259,16 @@ export async function processBilingualRepository(
     en: detectedLang === 'en' ? original : translated,
   };
 
-  await cacheData(cacheKey, result, REPO_CACHE_TTL_SECONDS);
-  return result;
+  await cacheData(cacheKey, result);
+  return { repo: result, translated: true };
 }
 
 // --- Snapshot helpers ---
 const isSnapshot = (value: unknown): value is RepositoriesSnapshot =>
   Boolean(value && typeof value === 'object' && Array.isArray((value as RepositoriesSnapshot).repos));
 
-const needsRefresh = (snapshot: RepositoriesSnapshot, now = Date.now()) => {
-  const age = now - snapshot.generatedAt;
-  return age > FRESH_FOR_MS || (!snapshot.complete && age > INCOMPLETE_RETRY_MS);
-};
+const needsRefresh = (snapshot: RepositoriesSnapshot, now = Date.now()) =>
+  now - snapshot.generatedAt > FRESH_FOR_MS || (snapshot.retryAt !== undefined && now >= snapshot.retryAt);
 
 const readSnapshot = async (): Promise<RepositoriesSnapshot | null> => {
   const value = await getCachedData(SNAPSHOT_KEY);
@@ -297,22 +322,49 @@ export async function refreshPublicRepositories(): Promise<RepositoriesSnapshot 
     const fallback = loadFallbackMap();
 
     const repos: BilingualRepository[] = [];
-    let complete = true;
+    let translationsLeft = MAX_TRANSLATIONS_PER_REFRESH;
+    let retryAt: number | undefined;
+    const scheduleRetry = (at: number) => {
+      retryAt = retryAt === undefined ? at : Math.min(retryAt, at);
+    };
+
     for (const { repo, readme } of valid) {
-      if (Date.now() < deadline) {
-        try {
-          repos.push(
-            await processBilingualRepository(
-              repo.id, repo.name, repo.html_url, repo.language,
-              repo.stargazers_count, repo.updated_at, repo.description, readme
-            )
-          );
+      const hash = textHash(repo.description, readme);
+      const failureKey = `${FAILURE_KEY_PREFIX}${repo.name}`;
+      const storedFailure: TranslationFailure | null = await getCachedData(failureKey);
+      const failure = storedFailure?.hash === hash ? storedFailure : null;
+      const gaveUp = failure !== null && failure.attempts >= MAX_TRANSLATION_ATTEMPTS;
+      const waiting = failure !== null && !gaveUp && Date.now() < failure.nextRetryAt;
+      const allowTranslation = !gaveUp && !waiting && translationsLeft > 0 && Date.now() < deadline;
+
+      try {
+        const result = await processBilingualRepository(
+          repo.id, repo.name, repo.html_url, repo.language,
+          repo.stargazers_count, repo.updated_at, repo.description, readme,
+          { allowTranslation }
+        );
+        if (result) {
+          if (result.translated) translationsLeft--;
+          if (storedFailure) await deleteCachedData(failureKey); // resolved, or the text changed
+          repos.push(result.repo);
           continue;
-        } catch (err) {
-          console.error(`[Github bilingual cache] Could not translate ${repo.name}; keeping the previous version:`, err);
         }
+        // Needs a translation that this run could not do.
+        if (waiting) scheduleRetry(failure!.nextRetryAt);
+        else if (!gaveUp) scheduleRetry(Date.now() + INCOMPLETE_RETRY_MS);
+      } catch (err) {
+        translationsLeft--;
+        const attempts = (failure?.attempts ?? 0) + 1;
+        const delay = TRANSLATION_RETRY_DELAYS_MS[attempts - 1];
+        const nextRetryAt = delay === undefined ? Number.MAX_SAFE_INTEGER : Date.now() + delay;
+        await cacheData(failureKey, { hash, attempts, nextRetryAt } satisfies TranslationFailure);
+        if (delay !== undefined) scheduleRetry(nextRetryAt);
+        console.error(
+          `[Github bilingual cache] Could not translate ${repo.name} (attempt ${attempts}/${MAX_TRANSLATION_ATTEMPTS}); keeping the previous version:`,
+          err instanceof Error ? err.message : err
+        );
       }
-      complete = false;
+
       const known = previousByName.get(repo.name) ?? (fallback[repo.name] && fromFallback(fallback[repo.name]));
       repos.push(
         known
@@ -321,9 +373,17 @@ export async function refreshPublicRepositories(): Promise<RepositoriesSnapshot 
       );
     }
 
-    const snapshot: RepositoriesSnapshot = { generatedAt: Date.now(), complete, repos };
-    await cacheData(SNAPSHOT_KEY, snapshot, SNAPSHOT_TTL_SECONDS);
-    console.log(`[Github bilingual cache] Snapshot refreshed: ${repos.length} repositories (complete: ${complete}).`);
+    const snapshot: RepositoriesSnapshot = {
+      generatedAt: Date.now(),
+      complete: retryAt === undefined,
+      ...(retryAt !== undefined ? { retryAt } : {}),
+      repos,
+    };
+    await cacheData(SNAPSHOT_KEY, snapshot);
+    console.log(
+      `[Github bilingual cache] Snapshot refreshed: ${repos.length} repositories, ` +
+        `${MAX_TRANSLATIONS_PER_REFRESH - translationsLeft} Gemini translations, pending retry: ${retryAt ? new Date(retryAt).toISOString() : 'none'}.`
+    );
     await releaseLock(REFRESH_LOCK_KEY);
     return snapshot;
   } catch (error) {

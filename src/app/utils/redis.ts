@@ -236,13 +236,16 @@ export const getCvProfile = async (): Promise<any> => {
 };
 
 // --- Generic Caching Utils ---
-export const cacheData = async (key: string, data: any, ttlSeconds: number) => {
+// Without ttlSeconds the value never expires (it is replaced when its content changes).
+export const cacheData = async (key: string, data: any, ttlSeconds?: number) => {
     const redis = await getClient();
     if (redis) {
         try {
-            await redis.set(key, JSON.stringify(data), {
-                expiration: { type: 'EX', value: ttlSeconds },
-            });
+            await redis.set(
+                key,
+                JSON.stringify(data),
+                ttlSeconds ? { expiration: { type: 'EX', value: ttlSeconds } } : undefined
+            );
             return;
         } catch (error) {
             console.error(`[Redis] Error caching data for ${key}:`, error);
@@ -251,6 +254,17 @@ export const cacheData = async (key: string, data: any, ttlSeconds: number) => {
     
     // In-memory fallback
     memoryStore.set(key, JSON.stringify(data));
+};
+
+export const deleteCachedData = async (key: string) => {
+    memoryStore.delete(key);
+    const redis = await getClient();
+    if (!redis) return;
+    try {
+        await redis.del(key);
+    } catch (error) {
+        console.error(`[Redis] Error deleting ${key}:`, error);
+    }
 };
 
 export const getCachedData = async (key: string) => {

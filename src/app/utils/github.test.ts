@@ -3,11 +3,16 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // --- In-memory Redis stand-in ---
 const store = new Map<string, unknown>();
+const ttls = new Map<string, number | undefined>();
 const locks = new Set<string>();
 vi.mock('@/app/utils/redis', () => ({
   getCachedData: vi.fn(async (key: string) => (store.has(key) ? structuredClone(store.get(key)) : null)),
-  cacheData: vi.fn(async (key: string, data: unknown) => {
+  cacheData: vi.fn(async (key: string, data: unknown, ttlSeconds?: number) => {
     store.set(key, structuredClone(data));
+    ttls.set(key, ttlSeconds);
+  }),
+  deleteCachedData: vi.fn(async (key: string) => {
+    store.delete(key);
   }),
   acquireLock: vi.fn(async (key: string) => {
     if (locks.has(key)) return false;
@@ -214,6 +219,8 @@ describe('github repositories: read path never waits on GitHub or Gemini', () =>
 
 describe('github repositories: background refresh', () => {
   beforeEach(() => {
+    vi.useRealTimers();
+    ttls.clear();
     store.clear();
     locks.clear();
     scheduled.length = 0;
@@ -289,5 +296,92 @@ describe('github repositories: background refresh', () => {
     expect([first, second].filter(Boolean)).toHaveLength(1);
     const listCalls = fakeFetch.mock.calls.filter(([url]) => String(url).includes('/users/'));
     expect(listCalls).toHaveLength(1);
+  });
+
+  // --- R16: bounded token spending ---
+  const translationCalls = async () => {
+    const t = await import('./translation');
+    return vi.mocked(t.translateText).mock.calls.length + vi.mocked(t.detectLanguage).mock.calls.length;
+  };
+
+  it('spends no tokens when the original text did not change, and stores translations without expiry', async () => {
+    const { refreshPublicRepositories } = await load();
+    await refreshPublicRepositories();
+    const afterFirst = await translationCalls();
+    expect(afterFirst).toBeGreaterThan(0);
+    expect(ttls.get('github:repo:bilingual:alpha')).toBeUndefined();
+    expect(ttls.get('github:repos:public:snapshot')).toBeUndefined();
+
+    await refreshPublicRepositories();
+    expect(await translationCalls()).toBe(afterFirst);
+  });
+
+  it('backs off after a failed translation instead of retrying in a loop', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-11-16T10:00:00Z'));
+    translation.failing = true;
+    const { refreshPublicRepositories } = await load();
+
+    const first = await refreshPublicRepositories();
+    expect(first?.complete).toBe(false);
+    expect(first?.retryAt).toBe(new Date('2026-11-16T10:05:00Z').getTime());
+    expect(store.get('github:translation-failure:alpha')).toMatchObject({ attempts: 1 });
+    const calls = await translationCalls();
+
+    // One minute later: still waiting, Gemini is not called again.
+    vi.setSystemTime(new Date('2026-11-16T10:01:00Z'));
+    await refreshPublicRepositories();
+    expect(await translationCalls()).toBe(calls);
+
+    // After the wait: one more attempt, then the next wait is 1 hour.
+    vi.setSystemTime(new Date('2026-11-16T10:06:00Z'));
+    await refreshPublicRepositories();
+    expect(await translationCalls()).toBeGreaterThan(calls);
+    expect(store.get('github:translation-failure:alpha')).toMatchObject({ attempts: 2 });
+  });
+
+  it('gives up after the maximum attempts for the same text, until the text changes', async () => {
+    translation.failing = true;
+    const { refreshPublicRepositories, textHash } = await load();
+    for (const name of ['alpha', 'beta']) {
+      store.set(`github:translation-failure:${name}`, {
+        hash: textHash(`${name} description`, README),
+        attempts: 4,
+        nextRetryAt: Number.MAX_SAFE_INTEGER,
+      });
+    }
+
+    const snapshot = await refreshPublicRepositories();
+    expect(await translationCalls()).toBe(0);
+    expect(snapshot?.complete).toBe(true); // nothing pending: no more refresh loops for it
+    expect(snapshot?.retryAt).toBeUndefined();
+
+    // The README changes: it is a new version, so it is tried again.
+    translation.failing = false;
+    fetchMode.readmes.alpha = README + ' updated';
+    await refreshPublicRepositories();
+    expect(await translationCalls()).toBeGreaterThan(0);
+    expect(store.has('github:translation-failure:alpha')).toBe(false);
+  });
+
+  it('translates at most a fixed number of repositories per refresh', async () => {
+    const names = Array.from({ length: 8 }, (_, i) => `repo${i}`);
+    fetchMode = { list: names.map((n) => repo(n)), readmes: Object.fromEntries(names.map((n) => [n, README])) };
+    const { refreshPublicRepositories } = await load();
+
+    const snapshot = await refreshPublicRepositories();
+    const translated = names.filter((n) => store.has(`github:repo:bilingual:${n}`));
+    expect(translated).toHaveLength(5);
+    expect(snapshot?.complete).toBe(false);
+    expect(snapshot?.retryAt).toBeDefined();
+  });
+
+  it('never treats an untranslated placeholder as a translation', async () => {
+    const { getPublicRepositories } = await load();
+    const untranslatedPlaceholder = { ...bilingual('alpha'), translated: false, es: { description: 'same', readme: README }, en: { description: 'same', readme: README } };
+    store.set('github:repos:public:snapshot', { generatedAt: Date.now(), complete: false, retryAt: Date.now() + 300000, repos: [untranslatedPlaceholder] });
+
+    const [alpha] = await getPublicRepositories();
+    expect(alpha.translated).toBe(false);
   });
 });

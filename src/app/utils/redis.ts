@@ -2,14 +2,21 @@ import { createClient } from 'redis';
 import fs from 'fs';
 import path from 'path';
 
-type RedisClient = ReturnType<typeof createClient>;
-
 // Without REDIS_URL the app always uses the in-memory store (local development and tests).
 const REDIS_URL = process.env.REDIS_URL;
 // Never make a request wait longer than this for a connection.
 const CONNECT_TIMEOUT_MS = 2000;
 // After a failure, serve from memory for this long before trying Redis again.
 const RETRY_COOLDOWN_MS = 30_000;
+
+const newClient = () =>
+    createClient({
+        url: REDIS_URL,
+        // Fail fast instead of queueing commands while disconnected.
+        disableOfflineQueue: true,
+        socket: { connectTimeout: CONNECT_TIMEOUT_MS, reconnectStrategy: false },
+    });
+type RedisClient = ReturnType<typeof newClient>;
 
 let client: RedisClient | null = null;
 let connecting: Promise<void> | null = null;
@@ -35,12 +42,7 @@ const discard = (stale: RedisClient) => {
 };
 
 const createRedisClient = (): RedisClient => {
-    const created = createClient({
-        url: REDIS_URL,
-        // Fail fast instead of queueing commands while disconnected.
-        disableOfflineQueue: true,
-        socket: { connectTimeout: CONNECT_TIMEOUT_MS, reconnectStrategy: false },
-    });
+    const created = newClient();
     created.on('error', (err) => {
         console.error('Redis Client Error:', err?.message || err);
         if (client === created) {
@@ -207,7 +209,7 @@ export const cacheData = async (key: string, data: any, ttlSeconds: number) => {
     if (redis) {
         try {
             await redis.set(key, JSON.stringify(data), {
-                EX: ttlSeconds
+                expiration: { type: 'EX', value: ttlSeconds },
             });
             return;
         } catch (error) {
@@ -245,7 +247,7 @@ export const acquireLock = async (key: string, ttlSeconds: number): Promise<bool
     const redis = await getClient();
     if (redis) {
         try {
-            return (await redis.set(key, '1', { NX: true, EX: ttlSeconds })) === 'OK';
+            return (await redis.set(key, '1', { condition: 'NX', expiration: { type: 'EX', value: ttlSeconds } })) === 'OK';
         } catch (error) {
             console.error(`[Redis] Error acquiring lock ${key}:`, error);
         }

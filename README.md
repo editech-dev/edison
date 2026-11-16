@@ -13,8 +13,8 @@ This project features **CyberStack**, an advanced AI Assistant designed to repre
     *   **GitHub**: Fetches real-time project data from `editech-dev/editech-dev`.
     *   **LinkedIn**: Injects detailed verified experience from `src/data/profile.json`.
 *   **Chat Memory**: Full conversation history persistence using Redis.
-*   **AI Fallback**: If Gemini fails, the chat API automatically falls back to **OpenRouter** (with the same Gemini Flash model).
-*   **Dual AI Mode**: Users can switch between **Cloud AI** (Gemini Flash) and **Local AI** (Chrome's built-in Gemini Nano) directly in the chat widget.
+*   **Resilient answers**: The chat retries once on transient Gemini errors and never leaves an empty answer; tool calls (project views, repositories) run between model turns.
+*   **Dual AI Mode**: Users can switch between **Cloud AI** (`gemini-flash-lite-latest`) and **Local AI** (Chrome's built-in Gemini Nano) directly in the chat widget. If Gemini Nano is unavailable or fails, the answer comes from the cloud model.
 *   **Tool Calling**: The agent can execute function calls to fetch profile data, repository lists, README content, and page view counts in real time.
 
 ### 📄 Interactive CV / Resume
@@ -35,7 +35,7 @@ This project features **CyberStack**, an advanced AI Assistant designed to repre
 ### ⚡ Tech Stack
 *   **Frontend**: Next.js 16 (App Router), React 19, Tailwind CSS v4, Framer Motion.
 *   **Styling**: Tailwind CSS v4 with custom CSS modules, Geist Sans/Mono fonts, forced dark mode.
-*   **AI Core**: Google Gemini Flash Lite (using Google Generative AI SDK `@google/genai`). Optional fallback via OpenRouter.
+*   **AI Core**: Google Gemini through the always-current alias `gemini-flash-lite-latest` (SDK `@google/genai`, API `v1beta`), for both the chat and the repository translations.
 *   **Database & Cache**: Redis (chat logs, GitHub API cache, view counters, CV profile cache) with automatic in-memory fallback.
 *   **PDF Generation**: `@react-pdf/renderer` for server-side professional CV/resume PDF.
 *   **Markdown Rendering**: `react-markdown` + `remark-gfm` for chat message formatting.
@@ -73,7 +73,7 @@ This endpoint constructs the system prompt dynamically on every request:
 ### 3. Chat API (`src/app/api/chat/route.ts`)
 Handles streaming chat responses with function-calling capabilities:
 *   **Primary**: Google Gemini Flash Lite via `@google/genai` SDK with streaming, tool declarations, and automatic function call execution loops (max 5 iterations).
-*   **Fallback**: If Gemini fails (e.g., missing API key), automatically falls back to OpenRouter with SSE streaming.
+*   **Failure handling**: one retry on 503/429 before the answer starts; if it still fails the API answers `503` with a readable message, and a stream that breaks midway ends with a visible notice.
 *   **Tools**: `getProfileInfo`, `getGithubRepos`, `getRepositoryReadme`, `getProjectViews` — defined in `src/app/utils/chatbot_tools.ts`.
 
 ### 4. Persistent Memory (`src/app/api/log-chat/route.ts`)
@@ -115,7 +115,7 @@ src/
 ├── app/
 │   ├── api/
 │   │   ├── agent-context/    # Dynamic context generation (XML + GitHub + Profile)
-│   │   ├── chat/             # Streaming chat with Gemini + OpenRouter fallback + tool calling
+│   │   ├── chat/             # Streaming chat with Gemini (gemini-flash-lite-latest) + tool calling
 │   │   ├── chats/            # Chat history retrieval (admin-protected)
 │   │   │   └── [id]/         # Single chat detail
 │   │   ├── cv-pdf/           # Professional PDF CV generation (@react-pdf/renderer)
@@ -202,7 +202,6 @@ bun run tsc --noEmit  # Type check
 
     # Optional
     REDIS_URL=redis://localhost:6379           # Falls back to in-memory store if missing
-    OPENROUTER_API_KEY=your_openrouter_key     # Fallback if Gemini fails
     ADMIN_API_TOKEN=your_admin_token           # Protects /api/chats endpoints
     NEXT_PUBLIC_BASE_URL=https://editech.dev   # Used for sitemap, robots.txt, OG metadata
     ```
@@ -221,7 +220,7 @@ bun run tsc --noEmit  # Type check
 
 | Endpoint | Method | Auth | Description |
 |---|---|---|---|
-| `/api/chat` | `POST` | None | Streaming chat with Gemini (primary) or OpenRouter (fallback). Body: `{ messages, systemInstruction }` |
+| `/api/chat` | `POST` | None | Streaming chat with Gemini (`gemini-flash-lite-latest`) and tool calling. Body: `{ messages, systemInstruction }` |
 | `/api/agent-context` | `GET` | None | Returns compiled system prompt with live GitHub data + CV profile injected |
 | `/api/log-chat` | `POST` | None | Persists chat session to Redis. Body: `{ messages, timestamp, chatId? }` |
 | `/api/chats` | `GET` | `Bearer ADMIN_API_TOKEN` | Lists all chat sessions with metadata (id, timestamp, preview) |

@@ -2,37 +2,76 @@ import { createClient } from 'redis';
 import fs from 'fs';
 import path from 'path';
 
-// Singleton Redis Client
-const client = createClient({
-    url: process.env.REDIS_URL || 'redis://localhost:6379'
-});
+type RedisClient = ReturnType<typeof createClient>;
 
-let redisConnectionFailed = false;
+// Without REDIS_URL the app always uses the in-memory store (local development and tests).
+const REDIS_URL = process.env.REDIS_URL;
+// Never make a request wait longer than this for a connection.
+const CONNECT_TIMEOUT_MS = 2000;
+// After a failure, serve from memory for this long before trying Redis again.
+const RETRY_COOLDOWN_MS = 30_000;
 
-client.on('error', (err) => {
-    console.error('Redis Client Error:', err.message || err);
-    redisConnectionFailed = true;
-});
+let client: RedisClient | null = null;
+let connecting: Promise<void> | null = null;
+let retryAfter = 0;
 
-const getClient = async () => {
-    if (redisConnectionFailed) {
-        return null;
-    }
-    try {
-        if (!client.isOpen) {
-            // Set a connection timeout of 2 seconds so local development doesn't hang
-            const connectPromise = client.connect();
-            const timeoutPromise = new Promise((_, reject) => 
-                setTimeout(() => reject(new Error("Redis connection timeout")), 2000)
-            );
-            await Promise.race([connectPromise, timeoutPromise]);
+const markUnavailable = (reason: unknown) => {
+    const message = reason instanceof Error ? reason.message : String(reason);
+    console.warn(`Redis unavailable (${message}). Using the in-memory store for ${RETRY_COOLDOWN_MS / 1000}s.`);
+    retryAfter = Date.now() + RETRY_COOLDOWN_MS;
+};
+
+const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error('Redis connection timeout')), ms);
+    });
+    return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+};
+
+const discard = (stale: RedisClient) => {
+    if (client === stale) client = null;
+    stale.disconnect().catch(() => {});
+};
+
+const createRedisClient = (): RedisClient => {
+    const created = createClient({
+        url: REDIS_URL,
+        // Fail fast instead of queueing commands while disconnected.
+        disableOfflineQueue: true,
+        socket: { connectTimeout: CONNECT_TIMEOUT_MS, reconnectStrategy: false },
+    });
+    created.on('error', (err) => {
+        console.error('Redis Client Error:', err?.message || err);
+        if (client === created) {
+            markUnavailable(err);
+            discard(created);
         }
-        return client;
-    } catch (err: any) {
-        console.warn("Redis offline. Falling back to in-memory mock database.", err.message || err);
-        redisConnectionFailed = true;
-        return null;
+    });
+    return created;
+};
+
+// Returns a ready client, or null when Redis is not configured or currently unavailable.
+// A failure is never permanent: after RETRY_COOLDOWN_MS a new connection is attempted.
+const getClient = async (): Promise<RedisClient | null> => {
+    if (!REDIS_URL) return null;
+    if (client?.isReady) return client;
+    if (Date.now() < retryAfter) return null;
+
+    if (!connecting) {
+        const candidate = createRedisClient();
+        client = candidate;
+        connecting = withTimeout(candidate.connect().then(() => undefined), CONNECT_TIMEOUT_MS)
+            .catch((err) => {
+                markUnavailable(err);
+                discard(candidate);
+            })
+            .finally(() => {
+                connecting = null;
+            });
     }
+    await connecting;
+    return client?.isReady ? client : null;
 };
 
 // --- In-Memory Mock Fallback Store ---
